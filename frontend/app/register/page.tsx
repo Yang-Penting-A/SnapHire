@@ -27,6 +27,7 @@ export default function RegisterPage() {
     setIsLoading(true);
 
     try {
+      // Signup ke Supabase Auth
       const { data, error } = await supabase.auth.signUp({
         email: email,
         password: password,
@@ -39,10 +40,29 @@ export default function RegisterPage() {
 
       if (error) throw error;
 
+      // Catat ke Activity Logs setelah signup berhasil
+      const userId = data.user?.id;
+      if (userId) {
+        const { error: logError } = await supabase
+          .from('activity_logs')
+          .insert({
+            user_id: userId,
+            activity: `SYSTEM: Akun user telah dibuat (${fullName})`
+          });
+
+        // Log error jika insert gagal 
+        if (logError) {
+          console.warn('Gagal mencatat activity log:', logError.message);
+        } else {
+          console.log('[REGISTER] Activity log recorded for new user:', email);
+        }
+      }
+
       alert('Registrasi berhasil! Silakan login.');
       router.push('/login');
       
     } catch (error: any) {
+      console.error('[REGISTER] Error:', error.message);
       setErrorMsg(error.message || 'Terjadi kesalahan saat registrasi.');
     } finally {
       setIsLoading(false);

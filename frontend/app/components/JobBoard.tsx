@@ -33,13 +33,22 @@ export default function JobBoard() {
         const { data, error } = await supabase
           .from('jobs')
           .select('*')
-          .eq('status_job', 'open')
-          .order('created_at', { ascending: false });
+          .in('status_job', ['open', 'active']) 
+          .order('created_at', { ascending: false })
+          .limit(3); 
 
-        if (error) throw error;
-        if (data) setJobs(data);
+        if (error) {
+          console.error('Supabase query error:', error);
+          throw error;
+        }
+        
+        if (data && data.length > 0) {
+          setJobs(data);
+        } else {
+          setJobs([]);
+        }
       } catch (error) {
-        console.error('Error fetching jobs:', error);
+        setJobs([]);
       } finally {
         setIsLoading(false);
       }

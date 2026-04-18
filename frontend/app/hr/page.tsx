@@ -23,7 +23,6 @@ export default function HRDashboard() {
     const fetchDashboardData = async () => {
       setIsLoading(true);
       try {
-        // 1. Ambil Angka Cards (Hanya data yang diperlukan)
         const { count: countKandidat } = await supabase.from('users').select('*', { count: 'exact', head: true }).eq('role', 'applicant');
         const { count: countJobs } = await supabase.from('jobs').select('*', { count: 'exact', head: true }).eq('status_job', 'active');
         const { count: countCV } = await supabase.from('applications').select('*', { count: 'exact', head: true }).not('ai_score', 'is', null);
@@ -34,7 +33,6 @@ export default function HRDashboard() {
           cvTerproses: countCV || 0
         });
 
-        // 2. Ambil Data Tren Pelamar
         const { data: trendData } = await supabase.from('applications').select('created_at');
         
         const processTrend = trendData?.reduce((acc: any, curr) => {
@@ -50,7 +48,6 @@ export default function HRDashboard() {
 
         setChartDataTren(formattedTrend.length > 0 ? formattedTrend : [{tanggal: 'No Data', pelamar: 0}]);
 
-        // 3. Ambil Data Posisi Paling Diminati
         const { data: positionData } = await supabase.from('applications').select(`job_id, jobs ( title )`);
 
         const processPos = positionData?.reduce((acc: any, curr: any) => {
@@ -76,7 +73,7 @@ export default function HRDashboard() {
     fetchDashboardData();
   }, []);
 
-  // List Stats disesuaikan menjadi 3 item saja
+  // List Stats 
   const stats = [
     { title: "Total Kandidat", value: dataStats.totalKandidat, icon: <Users size={24} className="text-blue-600" />, bg: "bg-blue-50" },
     { title: "Lowongan Aktif", value: dataStats.lowonganAktif, icon: <Briefcase size={24} className="text-emerald-600" />, bg: "bg-emerald-50" },

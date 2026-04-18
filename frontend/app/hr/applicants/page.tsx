@@ -49,7 +49,6 @@ export default function ListPelamar() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      // 1. Query Pelamar (Join dengan User dan Jobs)
       let query = supabase
         .from('applications')
         .select(`
@@ -72,7 +71,6 @@ export default function ListPelamar() {
       const { data: appData } = await query;
       setApplicants(appData || []);
 
-      // 2. Ambil Metadata Filter (Jobs & Skills dari tabel Jobs)
       const { data: jobsData } = await supabase.from('jobs').select('job_id, title, required_skills');
       
       if (jobsData) {
@@ -83,8 +81,6 @@ export default function ListPelamar() {
         const uniqueSkills = Array.from(new Set(allSkills)).filter(Boolean).sort();
         setAvailableSkills(uniqueSkills as string[]);
       }
-
-      // 3. Status dinamis dihapus dari fetchData karena sudah menggunakan MASTER_STATUSES di atas
 
     } catch (err) {
       console.error("Fetch Error:", err);

@@ -25,7 +25,7 @@ app.get('/', (req: Request, res: Response) => {
   });
 });
 
-app.use(config.apiV1Str, routes);
+app.use(config.apiPrefix, routes);
 
 // Error handling middleware
 app.use(errorHandler);

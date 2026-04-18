@@ -5,7 +5,7 @@ dotenv.config();
 export const config = {
   debug: process.env.DEBUG === 'true',
   port: parseInt(process.env.PORT || '8000', 10),
-  apiV1Str: process.env.API_V1_STR || '/api/v1',
+  apiPrefix: process.env.API_PREFIX || '/api',
   corsOrigin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000', 'http://localhost:8000'],
   database: {
     url: process.env.DATABASE_URL || '',

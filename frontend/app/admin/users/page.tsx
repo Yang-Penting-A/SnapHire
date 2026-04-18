@@ -35,25 +35,19 @@ export default function AdminUserManagement() {
     setMessage({ type: '', text: '' });
 
     try {
-      // 1. Ambil data Admin yang sedang login saat ini (untuk keperluan log)
       const { data: { user: currentAdmin } } = await supabase.auth.getUser();
-
-      // 2. Daftarkan akun ke Auth Supabase
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: {
           data: {
             full_name: formData.fullName,
-            role: 'hr' // Paksa role jadi HR di metadata
+            role: 'hr' 
           }
         }
       });
 
       if (authError) throw authError;
-
-      // 3. CATAT AKTIVITAS (CCTV)
-      // Ini penting agar ketahuan di Activity Logs siapa yang buat akun HR ini
       if (currentAdmin) {
         await supabase.from('activity_logs').insert({
           user_id: currentAdmin.id,
@@ -63,7 +57,7 @@ export default function AdminUserManagement() {
 
       setMessage({ type: 'success', text: `Akun HR untuk ${formData.fullName} berhasil diaktifkan!` });
       setFormData({ fullName: '', email: '', password: '' });
-      fetchUsers(); // Refresh list agar user baru muncul di tabel
+      fetchUsers(); 
     } catch (error: any) {
       setMessage({ type: 'error', text: error.message });
     } finally {
