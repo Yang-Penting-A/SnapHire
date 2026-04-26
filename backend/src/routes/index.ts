@@ -4,8 +4,10 @@ import { azureService } from '../services/azure';
 import { authMiddleware } from '../middleware/authMiddleware';
 import { requireRole, onlyAdmin, onlyHR, onlyApplicant } from '../middleware/roleMiddleware';
 import { AuthRequest, ApiResponse } from '../types';
+import cvRouter from './cv';
 
 const router = Router();
+router.use('/cv', cvRouter);
 
 router.post(
   '/login',
