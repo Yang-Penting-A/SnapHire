@@ -1,6 +1,8 @@
 import { Router } from "express";
 import multer from "multer";
-import pdf from "pdf-parse"; // Cara paling standar
+const pdf = require("pdf-parse"); 
+import { supabase } from "../services/supabase";
+import { azureService } from "../services/azure";
 import { extractResumeData, calculateMatchScore } from "../services/gemini";
 
 const router = Router();
@@ -8,34 +10,87 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 router.post("/upload", upload.single("file"), async (req, res) => {
   try {
+    const { job_id } = req.body;
+
     if (!req.file) return res.status(400).json({ message: "File PDF tidak ditemukan" });
+    if (!job_id) return res.status(400).json({ message: "job_id wajib disertakan" });
 
-    const { jobDesc } = req.body;
-    if (!jobDesc) return res.status(400).json({ message: "Mohon masukkan jobDesc" });
+    // --- TAHAP 1: AMBIL KRITERIA KERJA DARI DATABASE ---
+    const { data: job, error: jobError } = await supabase
+      .from('jobs')
+      .select('requirements')
+      .eq('job_id', job_id)
+      .single();
 
-    // Handle jika library di-import sebagai objek Module (seperti log kamu tadi)
-    const parsePdf = typeof pdf === 'function' ? pdf : (pdf as any).default;
-
-    if (typeof parsePdf !== 'function') {
-      throw new Error("Library pdf-parse gagal dimuat sebagai fungsi. Pastikan versi 1.1.1 terinstall.");
+    if (jobError || !job) {
+      return res.status(404).json({ message: "Pekerjaan tidak ditemukan di database" });
     }
 
-    // Eksekusi parsing teks
+    // --- TAHAP 2: UPLOAD FILE KE AZURE BLOB STORAGE ---
+    const fileExtension = req.file.originalname.split('.').pop();
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExtension}`;
+
+    const azureResponse = await azureService.uploadFile(
+      fileName, 
+      req.file.buffer, 
+      'application/pdf'
+    );
+
+    if (!azureResponse.success || !azureResponse.data) {
+      throw new Error(azureResponse.message);
+    }
+
+    const publicUrl = azureResponse.data.url;
+
+    // --- TAHAP 3: PARSING & AI PROCESSING ---
+    const parsePdf = typeof pdf === 'function' ? pdf : pdf.default;
     const pdfData = await parsePdf(req.file.buffer);
     const rawText = pdfData.text;
 
-    // Proses AI
     const resumeData = await extractResumeData(rawText);
-    const scoringResult = await calculateMatchScore(resumeData, jobDesc);
+    const scoringResult = await calculateMatchScore(resumeData, job.requirements);
+
+    // --- TAHAP 4: SIMPAN KE TABEL CANDIDATES ---
+    const { data: candidate, error: candError } = await supabase
+      .from('candidates')
+      .insert([{
+        name: resumeData.nama,
+        email: resumeData.email,
+        phone_number: resumeData.phone, 
+        cv_text: rawText,
+        cv_file_url: publicUrl
+      }])
+      .select()
+      .single();
+
+    if (candError) throw candError;
+
+    // --- TAHAP 5: SIMPAN ANALISIS KE TABEL APPLICATIONS ---
+    const { error: appError } = await supabase
+      .from('applications')
+      .insert([{
+        candidate_id: candidate.candidate_id,
+        job_id: job_id,
+        ai_score: scoringResult.score,
+        ai_summary: scoringResult.summary,
+        ai_strengths: scoringResult.strengths,
+        ai_weaknesses: scoringResult.weaknesses,
+        ai_recommendation: scoringResult.recommendation,
+        status_application: 'pending'
+      }]);
+
+    if (appError) throw appError;
 
     res.status(200).json({
       status: "success",
-      candidate: resumeData,
-      analysis: scoringResult
+      message: "Proses screening selesai",
+      candidate_name: candidate.name,
+      score: scoringResult.score,
+      file_url: publicUrl
     });
 
   } catch (error: any) {
-    console.error("ERROR SNAPHIRE:", error.message);
+    console.error("Error Detail:", error.message);
     res.status(500).json({ status: "error", message: error.message });
   }
 });
