@@ -23,6 +23,8 @@ export const extractResumeData = async (textContent: string) => {
       "nama": "string",
       "email": "string",
       "phone": "string",
+      "linkedin_url": "string",
+      "portofolio_url": "string",
       "skills": ["string"],
       "experience": [
         {

@@ -15,7 +15,6 @@ router.post("/upload", upload.single("file"), async (req, res) => {
     if (!req.file) return res.status(400).json({ message: "File PDF tidak ditemukan" });
     if (!job_id) return res.status(400).json({ message: "job_id wajib disertakan" });
 
-    // --- TAHAP 1: AMBIL KRITERIA KERJA DARI DATABASE ---
     const { data: job, error: jobError } = await supabase
       .from('jobs')
       .select('requirements')
@@ -26,7 +25,6 @@ router.post("/upload", upload.single("file"), async (req, res) => {
       return res.status(404).json({ message: "Pekerjaan tidak ditemukan di database" });
     }
 
-    // --- TAHAP 2: UPLOAD FILE KE AZURE BLOB STORAGE ---
     const fileExtension = req.file.originalname.split('.').pop();
     const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExtension}`;
 
@@ -42,7 +40,6 @@ router.post("/upload", upload.single("file"), async (req, res) => {
 
     const publicUrl = azureResponse.data.url;
 
-    // --- TAHAP 3: PARSING & AI PROCESSING ---
     const parsePdf = typeof pdf === 'function' ? pdf : pdf.default;
     const pdfData = await parsePdf(req.file.buffer);
     const rawText = pdfData.text;
@@ -50,13 +47,14 @@ router.post("/upload", upload.single("file"), async (req, res) => {
     const resumeData = await extractResumeData(rawText);
     const scoringResult = await calculateMatchScore(resumeData, job.requirements);
 
-    // --- TAHAP 4: SIMPAN KE TABEL CANDIDATES ---
     const { data: candidate, error: candError } = await supabase
       .from('candidates')
       .insert([{
         name: resumeData.nama,
         email: resumeData.email,
-        phone_number: resumeData.phone, 
+        phone_number: resumeData.phone,
+        linkedin_url: resumeData.linkedin_url,
+        portfolio_url: resumeData.portfolio_url,
         cv_text: rawText,
         cv_file_url: publicUrl
       }])
@@ -65,7 +63,6 @@ router.post("/upload", upload.single("file"), async (req, res) => {
 
     if (candError) throw candError;
 
-    // --- TAHAP 5: SIMPAN ANALISIS KE TABEL APPLICATIONS ---
     const { error: appError } = await supabase
       .from('applications')
       .insert([{
