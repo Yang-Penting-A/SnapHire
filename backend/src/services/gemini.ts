@@ -5,6 +5,32 @@ dotenv.config();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY as string);
 
+// Retry helper dengan exponential backoff
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  baseDelayMs: number = 1000
+): Promise<T> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`[Gemini] Attempt ${attempt}/${maxRetries}...`);
+      return await fn();
+    } catch (error: any) {
+      const is503 = error.status === 503;
+      const isLastAttempt = attempt === maxRetries;
+      
+      if (is503 && !isLastAttempt) {
+        const delayMs = baseDelayMs * Math.pow(2, attempt - 1);
+        console.log(`[Gemini] 503 Error - retrying in ${delayMs}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+      } else {
+        throw error;
+      }
+    }
+  }
+  throw new Error("Retry failed");
+}
+
 export const extractResumeData = async (textContent: string) => {
   const model = genAI.getGenerativeModel({ 
     model: "gemini-2.5-flash-lite",
@@ -37,7 +63,7 @@ export const extractResumeData = async (textContent: string) => {
     }
   `;
   
-  const result = await model.generateContent(prompt);
+  const result = await retryWithBackoff(() => model.generateContent(prompt), 3, 2000);
   return JSON.parse(result.response.text());
 };
 
@@ -81,6 +107,6 @@ export const calculateMatchScore = async (resumeJSON: any, jobRequirements: stri
     }
   `;
 
-  const result = await model.generateContent(prompt);
+  const result = await retryWithBackoff(() => model.generateContent(prompt), 3, 2000);
   return JSON.parse(result.response.text());
 };
