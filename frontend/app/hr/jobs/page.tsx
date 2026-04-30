@@ -27,7 +27,7 @@ export default function KelolaLowongan() {
     salary_min: '',
     salary_max: '',
     description: '',
-    requirement: '',
+    requirements: '', // PERBAIKAN: Ubah dari 'requirement' jadi 'requirements' sesuai ERD
     required_skills: '' 
   });
 
@@ -86,8 +86,7 @@ export default function KelolaLowongan() {
         salary_min: job.salary_min?.toString() || '',
         salary_max: job.salary_max?.toString() || '',
         description: job.description || '',
-        requirement: job.requirement || '',
-        // Join array skill dari DB menjadi string dipisah koma untuk input
+        requirements: job.requirements || '', // Sesuaikan nama kolom
         required_skills: job.required_skills ? job.required_skills.join(', ') : ''
       });
     } else {
@@ -95,7 +94,7 @@ export default function KelolaLowongan() {
       setFormData({ 
         title: '', department: '', location: '', work_type: 'On-site', 
         employment_type: 'Full-time', status_job: 'active', due_date: '', 
-        salary_min: '', salary_max: '', description: '', requirement: '', required_skills: '' 
+        salary_min: '', salary_max: '', description: '', requirements: '', required_skills: '' 
       });
     }
     setIsModalOpen(true);
@@ -104,30 +103,52 @@ export default function KelolaLowongan() {
   const handleSubmit = async (e: React.FormEvent, targetStatus: string) => {
     e.preventDefault();
     setIsSubmitting(true);
+    
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      // PERBAIKAN: Berikan alert jika user tidak terdeteksi (jangan mati diam-diam)
+      if (authError || !user) {
+        alert("Gagal: Sesi HR tidak valid. Pastikan Anda sudah login.");
+        setIsSubmitting(false);
+        return;
+      }
 
       const payload = { 
-        ...formData, 
+        title: formData.title,
+        department: formData.department,
+        location: formData.location,
+        work_type: formData.work_type,
+        employment_type: formData.employment_type,
         status_job: targetStatus,
-        created_by: user.id,
+        due_date: formData.due_date || null,
         salary_min: formData.salary_min ? parseInt(formData.salary_min) : null,
         salary_max: formData.salary_max ? parseInt(formData.salary_max) : null,
-        due_date: formData.due_date || null,
-        // Convert string koma ke Array sebelum simpan ke Supabase
+        description: formData.description,
+        requirements: formData.requirements, // Pastikan sesuai ERD
+        created_by: user.id, // Relasi ke ID user (HR) yang membuat lowongan
         required_skills: formData.required_skills 
           ? formData.required_skills.split(',').map(s => s.trim()).filter(s => s !== "") 
           : []
       };
 
-      if (editingId) await supabase.from('jobs').update(payload).eq('job_id', editingId);
-      else await supabase.from('jobs').insert([payload]);
+      // PERBAIKAN: Tangkap error dari Supabase dan tampilkan ke layar
+      if (editingId) {
+        const { error } = await supabase.from('jobs').update(payload).eq('job_id', editingId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('jobs').insert([payload]);
+        if (error) throw error;
+      }
 
       setIsModalOpen(false);
       fetchJobs();
-    } catch (err) { alert("Error saving data"); }
-    finally { setIsSubmitting(false); }
+    } catch (err: any) { 
+      console.error("Supabase Save Error:", err);
+      alert(`Gagal menyimpan data: ${err.message}`); 
+    } finally { 
+      setIsSubmitting(false); 
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -232,7 +253,7 @@ export default function KelolaLowongan() {
                 <input required name="title" value={formData.title} onChange={handleChange} className="w-full p-5 bg-stone-50 border border-stone-100 rounded-3xl font-bold" placeholder="e.g. Senior Frontend Engineer" />
               </div>
 
-              {/* NEW: REQUIRED SKILLS SECTION */}
+              {/* REQUIRED SKILLS SECTION */}
               <div className="space-y-3">
                 <label className="text-[10px] font-black text-blue-600 uppercase tracking-widest flex items-center gap-2">
                   <Sparkles size={14} /> Required Skills (Pisahkan dengan koma)
@@ -286,11 +307,11 @@ export default function KelolaLowongan() {
               <div className="grid grid-cols-2 gap-8">
                 <div className="space-y-3">
                   <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Gaji Minimal (IDR)</label>
-                  <input type="number" name="salary_min" value={formData.salary_min} onChange={handleChange} className="w-full p-5 bg-stone-50 border border-stone-100 rounded-3xl" placeholder="5.000.000" />
+                  <input type="number" name="salary_min" value={formData.salary_min} onChange={handleChange} className="w-full p-5 bg-stone-50 border border-stone-100 rounded-3xl" placeholder="5000000" />
                 </div>
                 <div className="space-y-3">
                   <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Gaji Maksimal (IDR)</label>
-                  <input type="number" name="salary_max" value={formData.salary_max} onChange={handleChange} className="w-full p-5 bg-stone-50 border border-stone-100 rounded-3xl" placeholder="15.000.000" />
+                  <input type="number" name="salary_max" value={formData.salary_max} onChange={handleChange} className="w-full p-5 bg-stone-50 border border-stone-100 rounded-3xl" placeholder="15000000" />
                 </div>
               </div>
 
@@ -299,18 +320,24 @@ export default function KelolaLowongan() {
                 <textarea rows={4} name="description" value={formData.description} onChange={handleChange} className="w-full p-5 bg-stone-50 border border-stone-100 rounded-3xl outline-none" placeholder="Jelaskan peran ini secara detail..." />
               </div>
 
+              {/* PERBAIKAN: Field input untuk Requirements sekarang ditambahkan ke form JSX */}
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Persyaratan Pekerjaan (Requirements)</label>
+                <textarea rows={4} name="requirements" value={formData.requirements} onChange={handleChange} className="w-full p-5 bg-stone-50 border border-stone-100 rounded-3xl outline-none" placeholder="Jelaskan kualifikasi dan pengalaman yang dibutuhkan..." />
+              </div>
+
               {/* ACTION BUTTONS */}
               <div className="fixed bottom-0 right-0 w-full max-w-2xl p-8 bg-white/80 backdrop-blur-md border-t border-stone-100 flex gap-4">
                 <button 
                   type="button" disabled={isSubmitting}
-                  onClick={(e) => handleSubmit(e, 'draft')}
+                  onClick={(e) => handleSubmit(e, 'Draft')}
                   className="flex-1 py-5 bg-stone-100 text-stone-600 font-black rounded-3xl hover:bg-stone-200 uppercase text-[12px] tracking-widest flex items-center justify-center gap-2 transition-all"
                 >
                   <FileText size={16} /> Simpan Draft
                 </button>
                 <button 
                   type="button" disabled={isSubmitting}
-                  onClick={(e) => handleSubmit(e, 'active')}
+                  onClick={(e) => handleSubmit(e, 'Active')}
                   className="flex-[2] py-5 bg-blue-600 text-white font-black rounded-[32px] hover:bg-blue-700 shadow-xl shadow-blue-600/30 uppercase text-[12px] tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95"
                 >
                   {isSubmitting ? <Loader2 className="animate-spin" /> : <CheckCircle2 size={16} />}

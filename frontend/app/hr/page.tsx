@@ -1,176 +1,303 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Users, Briefcase, FileCheck, Loader2 } from 'lucide-react';
+import {
+  Users, Briefcase, FileCheck, Clock, CalendarCheck, TrendingUp,
+  Loader2, CheckCircle, AlertCircle
+} from 'lucide-react';
 import { supabase } from '@/app/lib/supabase';
-import { 
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, 
-  Tooltip as RechartsTooltip, ResponsiveContainer, 
-  BarChart, Bar 
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid,
+  Tooltip as RechartsTooltip, ResponsiveContainer,
+  BarChart, Bar, Cell
 } from 'recharts';
 
-export default function HRDashboard() {
+interface DashboardStats {
+  totalKandidat: number;
+  lowonganAktif: number;
+  cvTerproses: number;
+  interviewHariIni: number;
+  offerAcceptanceRate: number;
+  avgAiScore: number;
+  avgTimeToHire: number;
+  ditolakMingguIni: number;
+}
+
+interface PipelineData {
+  stage: string;
+  count: number;
+  color: string;
+  textColor: string;
+}
+
+interface InterviewSchedule {
+  jam: string;
+  nama: string;
+  posisi: string;
+  tahap: string;
+  status: 'confirmed' | 'pending';
+}
+
+interface CandidateRecent {
+  initials: string;
+  nama: string;
+  posisi: string;
+  stage: string;
+  stageColor: 'blue' | 'green' | 'amber' | 'red' | 'purple' | 'gray';
+}
+
+interface JobStatus {
+  title: string;
+  count: number;
+  status: 'active' | 'closing';
+}
+
+// Komponen Helper Internal
+const Badge = ({ children, color }: { children: React.ReactNode; color: 'blue' | 'green' | 'amber' | 'red' | 'purple' | 'gray'; }) => {
+  const colorMap = {
+    blue: 'bg-blue-50 text-blue-700',
+    green: 'bg-emerald-50 text-emerald-700',
+    amber: 'bg-amber-50 text-amber-700',
+    red: 'bg-red-50 text-red-700',
+    purple: 'bg-violet-50 text-violet-700',
+    gray: 'bg-stone-100 text-stone-600',
+  };
+  return (
+    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${colorMap[color] || colorMap.gray}`}>
+      {children}
+    </span>
+  );
+};
+
+const MetricCard = ({ label, value, sub, subPositive, icon, iconBg, isLoading }: { label: string; value: string | number; sub?: string; subPositive?: boolean; icon: React.ReactNode; iconBg: string; isLoading?: boolean; }) => (
+  <div className="bg-white rounded-2xl border border-stone-100 p-5 flex flex-col gap-3 hover:shadow-md hover:border-blue-100 transition-all">
+    <div className="flex items-start justify-between">
+      <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest leading-tight">{label}</p>
+      <div className={`p-2.5 rounded-xl ${iconBg}`}>{icon}</div>
+    </div>
+    {isLoading ? (
+      <Loader2 size={22} className="text-stone-200 animate-spin" />
+    ) : (
+      <div>
+        <p className="text-3xl font-black text-stone-800 tracking-tight">{value}</p>
+        {sub && (
+          <p className={`text-[11px] font-medium mt-1 ${subPositive === false ? 'text-red-500' : subPositive === true ? 'text-emerald-600' : 'text-stone-400'}`}>
+            {sub}
+          </p>
+        )}
+      </div>
+    )}
+  </div>
+);
+
+export default function HRDashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
-  const [dataStats, setDataStats] = useState({
-    totalKandidat: 0,
-    lowonganAktif: 0,
-    cvTerproses: 0
+  const [stats, setStats] = useState<DashboardStats>({
+    totalKandidat: 0, lowonganAktif: 0, cvTerproses: 0, interviewHariIni: 0,
+    offerAcceptanceRate: 0, avgAiScore: 0, avgTimeToHire: 0, ditolakMingguIni: 0,
   });
-  const [chartDataTren, setChartDataTren] = useState<{tanggal: string, pelamar: number}[]>([]);
-  const [chartDataPosisi, setChartDataPosisi] = useState<{posisi: string, jumlah: number}[]>([]);
+  
+  const [pipelineData, setPipelineData] = useState<PipelineData[]>([]);
+  const [recentCandidates, setRecentCandidates] = useState<CandidateRecent[]>([]);
+  const [activeJobs, setActiveJobs] = useState<JobStatus[]>([]);
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
+    const fetchAll = async () => {
       setIsLoading(true);
       try {
-        const { count: countKandidat } = await supabase.from('users').select('*', { count: 'exact', head: true }).eq('role', 'applicant');
-        const { count: countJobs } = await supabase.from('jobs').select('*', { count: 'exact', head: true }).eq('status_job', 'active');
-        const { count: countCV } = await supabase.from('applications').select('*', { count: 'exact', head: true }).not('ai_score', 'is', null);
+        const todayStr = new Date().toISOString().split('T')[0];
 
-        setDataStats({
-          totalKandidat: countKandidat || 0,
-          lowonganAktif: countJobs || 0,
-          cvTerproses: countCV || 0
+        // 1. Fetch Agregasi Dasar (Pisahkan Jobs agar lebih aman)
+        const [
+          kandidatRes,
+          cvRes,
+          interviewRes
+        ] = await Promise.all([
+          supabase.from('candidates').select('*', { count: 'exact', head: true }),
+          supabase.from('applications').select('*', { count: 'exact', head: true }).not('ai_score', 'is', null),
+          // Menggunakan ilike agar tidak peduli huruf besar/kecil
+          supabase.from('applications').select('*', { count: 'exact', head: true }).ilike('status_application', 'interview') 
+        ]);
+
+        const countKandidat = kandidatRes.count || 0;
+        const countCV = cvRes.count || 0;
+        const countInterview = interviewRes.count || 0;
+
+        // 2. Fetch Jobs secara Terpisah (Anti Gagal)
+        const { data: rawJobs, error: jobsError } = await supabase
+          .from('jobs')
+          .select('*, applications(application_id)');
+
+        let safeJobs = rawJobs || [];
+        if (jobsError) {
+          console.warn("Relasi applications gagal, mengambil data jobs saja...", jobsError);
+          const { data: fallbackJobs } = await supabase.from('jobs').select('*');
+          safeJobs = fallbackJobs || [];
+        }
+
+        // FILTER JAVASCRIPT: Kebal dari case-sensitive & due_date otomatis terfilter
+        const validJobs = safeJobs.filter(job => {
+          const isStatusActive = job.status_job?.toLowerCase() === 'active';
+          const isNotExpired = !job.due_date || job.due_date >= todayStr;
+          return isStatusActive && isNotExpired;
         });
 
-        const { data: trendData } = await supabase.from('applications').select('created_at');
-        
-        const processTrend = trendData?.reduce((acc: any, curr) => {
-          const date = new Date(curr.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
-          acc[date] = (acc[date] || 0) + 1;
-          return acc;
-        }, {});
+        const countJobs = validJobs.length; // Angka ini akan 100% akurat untuk Card Metrik
 
-        const formattedTrend = Object.keys(processTrend || {}).map(key => ({
-          tanggal: key,
-          pelamar: processTrend[key]
-        })).slice(-7);
+        // 3. Pipeline Rekrutmen
+        const stages = [
+          { stage: 'Melamar', key: 'applied', color: '#BFDBFE', textColor: '#1e40af' },
+          { stage: 'Screening', key: 'screening', color: '#60A5FA', textColor: '#fff' },
+          { stage: 'Interview', key: 'interview', color: '#2563EB', textColor: '#fff' },
+          { stage: 'Diterima', key: 'hired', color: '#065f46', textColor: '#fff' },
+        ];
 
-        setChartDataTren(formattedTrend.length > 0 ? formattedTrend : [{tanggal: 'No Data', pelamar: 0}]);
+        const pipelineCounts = await Promise.all(
+          stages.map(({ key }) =>
+            // Gunakan ilike agar kebal huruf besar/kecil
+            supabase.from('applications').select('*', { count: 'exact', head: true }).ilike('status_application', key)
+          )
+        );
 
-        const { data: positionData } = await supabase.from('applications').select(`job_id, jobs ( title )`);
+        const pipeline: PipelineData[] = stages.map((s, i) => ({
+          ...s, count: pipelineCounts[i].count || 0,
+        }));
+        setPipelineData(pipeline);
 
-        const processPos = positionData?.reduce((acc: any, curr: any) => {
-          const title = curr.jobs?.title || 'Unknown';
-          acc[title] = (acc[title] || 0) + 1;
-          return acc;
-        }, {});
+        // 4. Fetch Kandidat Terbaru 
+        const { data: recentData } = await supabase
+          .from('applications')
+          .select(`application_id, status_application, created_at, candidates(name), jobs(title)`)
+          .order('created_at', { ascending: false })
+          .limit(5);
 
-        const formattedPos = Object.keys(processPos || {}).map(key => ({
-          posisi: key,
-          jumlah: processPos[key]
-        })).sort((a, b) => b.jumlah - a.jumlah).slice(0, 5);
+        if (recentData) {
+          const colorMap: Record<string, 'blue' | 'green' | 'amber' | 'red' | 'purple' | 'gray'> = {
+            applied: 'blue', screening: 'amber', interview: 'purple', technical: 'amber', offered: 'green', hired: 'green', rejected: 'red'
+          };
+          const mappedRecent = recentData.map((app: any) => {
+            const name = app.candidates?.name || 'Pelamar Baru';
+            const stage = app.status_application?.toLowerCase() || 'applied'; // Paksa kecilkan huruf
+            return {
+              initials: name.substring(0, 2).toUpperCase(),
+              nama: name,
+              posisi: app.jobs?.title || 'Posisi Tidak Diketahui',
+              stage: stage.charAt(0).toUpperCase() + stage.slice(1),
+              stageColor: colorMap[stage] || 'gray'
+            };
+          });
+          setRecentCandidates(mappedRecent);
+        }
 
-        setChartDataPosisi(formattedPos.length > 0 ? formattedPos : [{posisi: 'No Data', jumlah: 0}]);
+        // 5. Setup Lowongan Aktif List (Gunakan validJobs yang sudah bersih)
+        const sortedJobs = [...validJobs]
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          .slice(0, 5);
 
-      } catch (error) {
-        console.error("Gagal mengambil data:", error);
+        setActiveJobs(
+          sortedJobs.map((job: any): JobStatus => ({
+            title: job.title || 'Untitled Job',
+            count: job.applications ? job.applications.length : 0,
+            status: 'active'
+          }))
+        );
+
+        // 6. Update State Statistik Utama
+        setStats({
+          totalKandidat: countKandidat,
+          lowonganAktif: countJobs,
+          cvTerproses: countCV,
+          interviewHariIni: countInterview, 
+          offerAcceptanceRate: 85, 
+          avgAiScore: 74, 
+          avgTimeToHire: 18, 
+          ditolakMingguIni: 8,
+        });
+
+      } catch (err) {
+        console.error('Gagal mengambil data:', err);
       } finally {
         setIsLoading(false);
       }
     };
-
-    fetchDashboardData();
+    fetchAll();
   }, []);
 
-  // List Stats 
-  const stats = [
-    { title: "Total Kandidat", value: dataStats.totalKandidat, icon: <Users size={24} className="text-blue-600" />, bg: "bg-blue-50" },
-    { title: "Lowongan Aktif", value: dataStats.lowonganAktif, icon: <Briefcase size={24} className="text-emerald-600" />, bg: "bg-emerald-50" },
-    { title: "CV Terproses AI", value: dataStats.cvTerproses, icon: <FileCheck size={24} className="text-orange-600" />, bg: "bg-orange-50" },
-  ];
+  const pipelineTotal = pipelineData.reduce((s, d) => s + d.count, 0) || 1;
+  const today = new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 ease-out">
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 ease-out">
       
-      {/* HEADER */}
-      <div className="flex justify-between items-end">
+      {/* HEADER DASHBOARD */}
+      <div className="flex items-end justify-between">
         <div>
-          <h1 className="text-3xl font-black text-stone-900 tracking-tight uppercase">Dashboard</h1>
-          <p className="text-stone-500 mt-1 font-medium italic">Ringkasan aktivitas rekrutmen snapHire hari ini.</p>
+          <h1 className="text-2xl font-black text-stone-900 tracking-tight uppercase">Dashboard HR</h1>
+          <p className="text-stone-400 text-sm mt-0.5 font-medium italic capitalize">{today}</p>
+        </div>
+        <span className="text-[10px] font-bold bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full uppercase tracking-widest">
+          Sistem aktif
+        </span>
+      </div>
+
+      {/* KPI CARDS */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <MetricCard label="Total Kandidat" value={stats.totalKandidat} isLoading={isLoading} icon={<Users size={18} className="text-blue-600" />} iconBg="bg-blue-50" />
+        <MetricCard label="Lowongan Aktif" value={stats.lowonganAktif} isLoading={isLoading} icon={<Briefcase size={18} className="text-emerald-600" />} iconBg="bg-emerald-50" />
+        <MetricCard label="CV Diproses AI" value={stats.cvTerproses} isLoading={isLoading} icon={<FileCheck size={18} className="text-orange-500" />} iconBg="bg-orange-50" />
+        <MetricCard label="Interview Hari Ini" value={stats.interviewHariIni} isLoading={isLoading} icon={<CalendarCheck size={18} className="text-violet-600" />} iconBg="bg-violet-50" />
+      </div>
+
+      {/* PIPELINE REKRUTMEN */}
+      <div className="bg-white rounded-2xl border border-stone-100 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xs font-black text-stone-400 uppercase tracking-widest">Pipeline Rekrutmen</h2>
+          <span className="text-xs text-stone-400 font-medium">{pipelineTotal} kandidat total</span>
+        </div>
+        <div className="flex rounded-xl overflow-hidden h-8 gap-0.5 mb-3">
+          {pipelineData.map((seg) => (
+            <div key={seg.stage} style={{ flex: seg.count, backgroundColor: seg.color }} className="flex items-center justify-center text-[10px] font-bold">
+              <span style={{ color: seg.textColor }}>{seg.count > 0 ? seg.count : ''}</span>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* CARDS - Diubah ke grid-cols-3 agar simetris */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {stats.map((stat, index) => (
-          <div key={index} className="bg-white rounded-[32px] p-8 border border-stone-100 shadow-sm hover:shadow-md transition-all relative overflow-hidden group">
-            <div className="flex justify-between items-start relative z-10">
-              <div>
-                <p className="text-[10px] font-black text-stone-400 mb-2 uppercase tracking-widest">{stat.title}</p>
-                {isLoading ? (
-                  <Loader2 size={28} className="text-stone-200 animate-spin mt-2" />
-                ) : (
-                  <h3 className="text-4xl font-black text-stone-800 tracking-tighter group-hover:text-blue-600 transition-colors">{stat.value}</h3>
-                )}
+      {/* RECENT DATA SECTION */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-white rounded-2xl border border-stone-100 p-6">
+          <h3 className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-4">Kandidat Terbaru</h3>
+          <div className="space-y-0">
+            {isLoading ? (
+               <div className="py-4 flex justify-center"><Loader2 className="animate-spin text-stone-200" /></div>
+            ) : recentCandidates.length > 0 ? recentCandidates.map((c, i) => (
+              <div key={i} className="flex items-center justify-between py-2 border-b border-stone-50 last:border-0">
+                <span className="text-sm font-bold">{c.nama}</span>
+                <Badge color={c.stageColor}>{c.stage}</Badge>
               </div>
-              <div className={`p-4 rounded-2xl ${stat.bg} transition-transform group-hover:scale-110`}>{stat.icon}</div>
-            </div>
+            )) : (
+              <p className="text-xs text-stone-400 text-center py-4">Belum ada pelamar baru</p>
+            )}
           </div>
-        ))}
-      </div>
-
-      {/* SECTION STATISTIK */}
-      <div className="pt-4">
-        <h2 className="text-2xl font-black text-stone-800 mb-6 uppercase tracking-tight">Statistik Rekrutmen</h2>
+        </div>
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* GRAFIK 1: AREA CHART */}
-          <div className="bg-white rounded-[40px] p-8 border border-stone-100 shadow-sm h-[400px] flex flex-col">
-            <h3 className="text-sm font-black text-stone-400 uppercase tracking-widest mb-8">Grafik Tren Pelamar Harian</h3>
-            <div className="flex-1 w-full h-full min-h-0">
-              {isLoading ? (
-                <div className="h-full flex items-center justify-center"><Loader2 className="animate-spin text-stone-300" /></div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartDataTren} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="colorPelamar" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#2563eb" stopOpacity={0.2}/>
-                        <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f5f5f4" />
-                    <XAxis dataKey="tanggal" axisLine={false} tickLine={false} tick={{fill: '#a8a29e', fontSize: 11, fontWeight: 700}} dy={10} />
-                    <YAxis axisLine={false} tickLine={false} tick={{fill: '#a8a29e', fontSize: 11, fontWeight: 700}} />
-                    <RechartsTooltip 
-                      contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '12px' }}
-                    />
-                    <Area type="monotone" dataKey="pelamar" stroke="#2563eb" strokeWidth={4} fillOpacity={1} fill="url(#colorPelamar)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </div>
-
-          {/* GRAFIK 2: BAR CHART */}
-          <div className="bg-white rounded-[40px] p-8 border border-stone-100 shadow-sm h-[400px] flex flex-col">
-            <h3 className="text-sm font-black text-stone-400 uppercase tracking-widest mb-8">Posisi Paling Diminati</h3>
-            <div className="flex-1 w-full h-full min-h-0">
-              {isLoading ? (
-                <div className="h-full flex items-center justify-center"><Loader2 className="animate-spin text-stone-300" /></div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartDataPosisi} margin={{ top: 10, right: 30, left: 20, bottom: 10 }} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f5f5f4" />
-                    <XAxis type="number" axisLine={false} tickLine={false} tick={{fill: '#a8a29e', fontSize: 11, fontWeight: 700}} />
-                    <YAxis 
-                      dataKey="posisi" 
-                      type="category" 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{fill: '#44403c', fontSize: 10, fontWeight: 800}} 
-                      width={100} 
-                    />
-                    <RechartsTooltip cursor={{fill: '#f8fafc'}} contentStyle={{ borderRadius: '20px', border: 'none' }} />
-                    <Bar dataKey="jumlah" fill="#3b82f6" radius={[0, 12, 12, 0]} barSize={24} />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </div>
+        <div className="bg-white rounded-2xl border border-stone-100 p-6">
+          <h3 className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-4">Lowongan Aktif</h3>
+          <div className="space-y-0">
+            {isLoading ? (
+               <div className="py-4 flex justify-center"><Loader2 className="animate-spin text-stone-200" /></div>
+            ) : activeJobs.length > 0 ? activeJobs.map((j, i) => (
+              <div key={i} className="flex items-center justify-between py-2 border-b border-stone-50 last:border-0">
+                <span className="text-sm font-medium">{j.title}</span>
+                <span className="text-xs text-stone-400">{j.count} pelamar</span>
+              </div>
+            )) : (
+              <p className="text-xs text-stone-400 text-center py-4">Tidak ada lowongan aktif</p>
+            )}
           </div>
         </div>
       </div>
+
     </div>
   );
 }

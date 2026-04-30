@@ -14,7 +14,6 @@ export default function HRLayout({ children }: { children: React.ReactNode }) {
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [hrName, setHrName] = useState("HR Name");
 
-  // Check localStorage first 
   useEffect(() => {
     const checkHR = async () => {
       try {
@@ -23,12 +22,9 @@ export default function HRLayout({ children }: { children: React.ReactNode }) {
           try {
             const userData = JSON.parse(storedUser);
             if (userData?.role?.toLowerCase() === 'hr') {
-              console.log('[HR] Authorized via localStorage');
               setHrName(userData.name || 'HR snapHire');
               setIsAuthorized(true);
-              return; 
             } else {
-              console.log('[HR] Role bukan HR, redirect to dashboard');
               router.replace('/dashboard');
               return;
             }
@@ -39,13 +35,11 @@ export default function HRLayout({ children }: { children: React.ReactNode }) {
 
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         if (sessionError || !session) {
-          console.warn('[HR] Session invalid, clearing auth...');
           await supabase.auth.signOut();
           router.replace('/login'); 
           return; 
         }
 
-        // Query database untuk cek role & nama 
         const { data: userData } = await supabase
           .from('users')
           .select('role, name')
@@ -53,10 +47,8 @@ export default function HRLayout({ children }: { children: React.ReactNode }) {
           .maybeSingle();
 
         if (userData?.role?.toLowerCase() !== 'hr') { 
-          console.log('[HR] Database: Role bukan HR');
           router.replace('/dashboard'); 
         } else { 
-          console.log('[HR] Authorized via database');
           setHrName(userData.name || 'HR snapHire');
           setIsAuthorized(true); 
         }
@@ -136,12 +128,10 @@ export default function HRLayout({ children }: { children: React.ReactNode }) {
         <div className="p-4 border-t border-stone-50">
           <button 
             onClick={async () => {
-              // Clear localStorage dulu sebelum logout
               if (typeof window !== 'undefined') {
                 localStorage.removeItem('token');
                 localStorage.removeItem('user');
               }
-              // Kemudian logout dari Supabase
               await supabase.auth.signOut();
               router.replace('/login');
             }}
@@ -170,7 +160,7 @@ export default function HRLayout({ children }: { children: React.ReactNode }) {
 
         <div className="h-16 lg:hidden"></div> {/* Spacer Mobile */}
         
-        {/* DASHBOARD CONTENT INJECTED HERE */}
+        {/* DASHBOARD CONTENT (children) INJECTED HERE */}
         <div className="p-5 md:p-8 lg:p-12 lg:pt-4 max-w-7xl mx-auto w-full">
           {children}
         </div>
