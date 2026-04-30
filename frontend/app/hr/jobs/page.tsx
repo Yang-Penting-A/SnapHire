@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { supabase } from '@/app/lib/supabase';
 import { 
   Plus, Search, Edit2, Trash2, 
@@ -27,7 +28,7 @@ export default function KelolaLowongan() {
     salary_max: '',
     description: '',
     requirement: '',
-    required_skills: '' // Kita simpan sebagai string di state form
+    required_skills: '' 
   });
 
   const fetchJobs = async () => {
@@ -180,25 +181,27 @@ export default function KelolaLowongan() {
                 return (
                   <tr key={job.job_id} className="hover:bg-stone-50/40 group transition-all duration-300">
                     <td className="px-10 py-8">
-                      <div className="flex items-center gap-8 justify-between w-full">
-                        <div className="flex flex-col gap-2 flex-1">
+                      <Link href={`/hr/jobs/${job.job_id}`}>
+                        <div className="flex items-center gap-8 justify-between w-full">
+                          <div className="flex flex-col gap-2 flex-1">
+                            <div className="flex items-center gap-3">
+                              <div className="font-black text-stone-800 text-xl tracking-tight leading-none group-hover:text-blue-600 transition-colors">{job.title}</div>
+                              <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${getStatusStyles(job)}`}>
+                                {isExpired ? 'Expired' : job.status_job}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-3 text-stone-400 font-bold text-xs uppercase">
+                              <div className="flex items-center gap-1"><MapPin size={14} className="text-blue-400" /> {job.location}</div>
+                              <span className="text-stone-200">•</span>
+                              <div className="flex items-center gap-1 tracking-tighter"><Calendar size={14} /> {job.due_date || 'No Limit'}</div>
+                            </div>
+                          </div>
                           <div className="flex items-center gap-3">
-                            <div className="font-black text-stone-800 text-xl tracking-tight leading-none group-hover:text-blue-600 transition-colors">{job.title}</div>
-                            <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${getStatusStyles(job)}`}>
-                              {isExpired ? 'Expired' : job.status_job}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-3 text-stone-400 font-bold text-xs uppercase">
-                            <div className="flex items-center gap-1"><MapPin size={14} className="text-blue-400" /> {job.location}</div>
-                            <span className="text-stone-200">•</span>
-                            <div className="flex items-center gap-1 tracking-tighter"><Calendar size={14} /> {job.due_date || 'No Limit'}</div>
+                            <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase border ${getWorkTypeStyles(job.work_type)}`}>{job.work_type}</span>
+                            <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase border ${getEmpTypeStyles(job.employment_type)}`}>{job.employment_type}</span>
                           </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase border ${getWorkTypeStyles(job.work_type)}`}>{job.work_type}</span>
-                          <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase border ${getEmpTypeStyles(job.employment_type)}`}>{job.employment_type}</span>
-                        </div>
-                      </div>
+                      </Link>
                     </td>
                     <td className="px-10 py-8 text-right pr-12">
                       <div className="flex items-center justify-end gap-2 opacity-40 group-hover:opacity-100 transition-opacity">
