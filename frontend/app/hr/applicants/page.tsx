@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation'; // <-- Ditambahkan untuk pindah halaman
 import { supabase } from '@/app/lib/supabase';
 import { 
   Search, Star, Loader2, Briefcase 
@@ -10,6 +11,7 @@ import {
 const MASTER_STATUSES = ['Review AI', 'Shortlisted', 'Interview', 'Technical Test', 'Hired', 'Rejected'];
 
 export default function ListPelamar() {
+  const router = useRouter(); // <-- Inisialisasi router
   const [applicants, setApplicants] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -148,14 +150,16 @@ export default function ListPelamar() {
                 <th className="px-8 py-5 font-black uppercase text-[10px] tracking-[0.2em]">Posisi Lowongan</th>
                 <th className="px-8 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-center">AI Score</th>
                 <th className="px-8 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-center">Status</th>
+                {/* Kolom Aksi Ditambahkan */}
+                <th className="px-8 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-center">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-50">
               {isLoading ? (
-                <tr><td colSpan={5} className="p-24 text-center"><Loader2 className="animate-spin inline text-blue-600" size={40} /></td></tr>
+                <tr><td colSpan={6} className="p-24 text-center"><Loader2 className="animate-spin inline text-blue-600" size={40} /></td></tr>
               ) : applicants.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-24 text-center">
+                  <td colSpan={6} className="p-24 text-center">
                     <p className="text-stone-400 font-bold uppercase text-xs tracking-widest">Data pelamar tidak ditemukan</p>
                     <p className="text-stone-300 text-xs mt-2">Ubah filter atau gunakan kata kunci lain.</p>
                   </td>
@@ -201,6 +205,15 @@ export default function ListPelamar() {
                         >
                           {MASTER_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
+                      </td>
+                      {/* Tombol Pindah Halaman Ditambahkan */}
+                      <td className="px-8 py-6 text-center">
+                        <button 
+                          onClick={() => router.push(`/hr/applicants/${app.application_id}`)}
+                          className="px-4 py-2 bg-white border border-stone-200 hover:border-blue-600 hover:bg-blue-600 hover:text-white rounded-xl text-[11px] font-black uppercase tracking-widest transition-all shadow-sm whitespace-nowrap"
+                        >
+                          Buka Profil
+                        </button>
                       </td>
                     </tr>
                   );

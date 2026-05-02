@@ -14,45 +14,60 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [hasActiveSession, setHasActiveSession] = useState(false);
-  const [activeUser, setActiveUser] = useState<any>(null);
   const [isCheckingSession, setIsCheckingSession] = useState(true);
+  
+  // STATE hasActiveSession dan activeUser DIHAPUS karena udah ngga pakai page session aktif
 
-  // check session di LocalStorage 
+  // LOGIC BARU: CHECK SESSION YANG LEBIH STABIL & AUTO-REDIRECT
   useEffect(() => {
-    const checkExistingSession = () => {
+    const checkExistingSession = async () => {
       const token = localStorage.getItem('token');
       const storedUser = localStorage.getItem('user');
 
       if (token && storedUser) {
         try {
-          const userData = JSON.parse(storedUser);
-          console.log('[LOGIN] ✅ Found active session:', userData.email);
-          setHasActiveSession(true);
-          setActiveUser(userData);
+          // Cross-check ke Supabase biar stabil (ngecek tokennya udah expired atau belum)
+          const { data: sessionData } = await supabase.auth.getSession();
+          
+          if (sessionData?.session) {
+            const userData = JSON.parse(storedUser);
+            console.log('[LOGIN] ✅ Active session found, redirecting...');
+            
+            // LANGSUNG LEMPAR KE DASHBOARD (Tanpa mampir ke page Session Aktif)
+            const role = userData.role?.toLowerCase();
+            if (role === 'admin') {
+              router.push('/admin');
+            } else if (role === 'hr') {
+              router.push('/hr');
+            } else {
+              router.push('/dashboard');
+            }
+            return; // Stop render form login
+          } else {
+            // Kalau di localStorage ada tapi di Supabase expired, bersihin!
+            console.log('[LOGIN] ❌ Session expired in Supabase, clearing local storage.');
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+          }
         } catch (err) {
           console.log('[LOGIN] Invalid stored user data');
-          setHasActiveSession(false);
-          setActiveUser(null);
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
         }
       }
       setIsCheckingSession(false);
     };
 
     checkExistingSession();
-  }, []);
+  }, [router]);
 
   // Detect logout/login di tab lain
   useEffect(() => {
     const handleStorageChange = (event: StorageEvent) => {
-      // Jika token dihapus/berubah di tab lain, auto refresh page
       if (event.key === 'token' && !event.newValue) {
-        console.log('[LOGIN] Token dihapus di tab lain, refresh page...');
         window.location.href = '/login';
       }
-      // Jika user berubah di tab lain (login user berbeda)
       if (event.key === 'user' && event.newValue !== event.oldValue) {
-        console.log('[LOGIN] User berbeda login di tab lain, refresh page...');
         window.location.href = '/login';
       }
     };
@@ -81,7 +96,7 @@ export default function LoginPage() {
 
       const token = sessionData.session.access_token;
 
-      // Backend akan verify token dan return user role via middleware
+      // Backend verify token
       const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
       const response = await fetch(`${backendUrl}/login`, {
         method: 'POST',
@@ -102,10 +117,9 @@ export default function LoginPage() {
       if (typeof window !== 'undefined') {
         localStorage.setItem('token', token);
         localStorage.setItem('user', JSON.stringify(userData));
-        console.log(`[LOGIN] ✅ Token saved for: ${userData?.email} (${userData?.role})`);
       }
 
-      // catat activity log login
+      // catat activity log
       const { error: logError } = await supabase.from('activity_logs').insert({
         user_id: authData.user.id,
         activity: `LOGIN: ${userData?.name || 'User'} masuk sebagai ${userData?.role || 'user'}`
@@ -125,30 +139,8 @@ export default function LoginPage() {
       }
 
     } catch (error: any) {
-      console.error('[REGISTER] Error:', error.message);
-      setErrorMsg(error.message || 'Terjadi kesalahan saat registrasi.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    setIsLoading(true);
-    try {
-      // Clear localStorage dulu
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-      }
-      // logout dari Supabase
-      await supabase.auth.signOut();
-      console.log('[LOGIN] ✅ Session cleared');
-      setHasActiveSession(false);
-      setActiveUser(null);
-      setEmail('');
-      setPassword('');
-    } catch (error) {
-      console.error('[LOGIN] Logout error:', error);
+      console.error('[LOGIN] Error:', error.message);
+      setErrorMsg(error.message || 'Email atau Password salah.');
     } finally {
       setIsLoading(false);
     }
@@ -166,71 +158,7 @@ export default function LoginPage() {
     );
   }
 
-  // tampilan saat ada session active
-  if (hasActiveSession && activeUser) {
-    return (
-      <div className="min-h-screen bg-[#F4F7FE] flex items-center justify-center p-4 md:p-8 font-sans">
-        <div className="max-w-md w-full">
-          <div className="bg-white rounded-[2.5rem] shadow-2xl shadow-blue-900/5 border border-white p-8 sm:p-10">
-            
-            <div className="flex flex-col items-center mb-10 text-center">
-              <Link href="/">
-                <Image src="/SmallLogo.png" alt="Logo" width={150} height={40} className="w-auto h-9 mb-4" priority />
-              </Link>
-              <h1 className="text-xl font-black text-stone-900 tracking-tight">Session Aktif</h1>
-              <div className="h-1.5 w-10 bg-blue-600 rounded-full mt-3"></div>
-            </div>
-
-            <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 mb-8">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                  {activeUser.name?.charAt(0).toUpperCase() || 'U'}
-                </div>
-                <div className="text-left">
-                  <p className="font-black text-stone-900">{activeUser.name}</p>
-                  <p className="text-sm text-stone-600">{activeUser.email}</p>
-                </div>
-              </div>
-              <div className="px-3 py-1.5 bg-blue-600 text-white rounded-full inline-block text-xs font-bold">
-                {activeUser.role?.toUpperCase()}
-              </div>
-            </div>
-
-            <p className="text-center text-sm text-stone-600 mb-6">
-              Anda sedang login dengan akun <span className="font-black">{activeUser.name}</span>. 
-              <br />
-              <span className="text-xs">Untuk login dengan akun berbeda, silakan logout terlebih dahulu.</span>
-            </p>
-
-            <button 
-              onClick={() => {
-                const role = activeUser.role?.toLowerCase();
-                if (role === 'admin') {
-                  router.push('/admin');
-                } else if (role === 'hr') {
-                  router.push('/hr');
-                } else {
-                  router.push('/dashboard');
-                }
-              }}
-              disabled={isLoading}
-              className="w-full bg-blue-600 text-white font-black py-3.5 rounded-2xl hover:bg-blue-700 transition-all mb-3 shadow-xl shadow-blue-600/25"
-            >
-              Lanjutkan sebagai {activeUser.name}
-            </button>
-
-            <button 
-              onClick={handleLogout}
-              disabled={isLoading}
-              className="w-full bg-red-50 text-red-600 font-bold py-3.5 rounded-2xl hover:bg-red-100 transition-all border border-red-200"
-            >
-              {isLoading ? 'Logout...' : 'Logout & Login Akun Lain'}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // BLOK IF (hasActiveSession) UDAH DIHAPUS TOTAL DI SINI
 
   // view saat belum ada session, tampilkan form login
   return (
@@ -255,7 +183,7 @@ export default function LoginPage() {
 
         {/* FORM SISI KANAN */}
         <div className="w-full max-w-md mx-auto">
-          <div className="bg-white rounded-[2.5rem] shadow-2xl shadow-blue-900/5 border border-white p-8 sm:p-10">
+          <div className="bg-white rounded-[2.5rem] shadow-2xl shadow-blue-900/5 border border-white p-8 sm:p-10 animate-in fade-in duration-500">
             
             <div className="flex flex-col items-center mb-10 text-center">
               <Link href="/">
@@ -292,7 +220,10 @@ export default function LoginPage() {
                   <label className="text-sm font-bold text-stone-800 flex items-center gap-2">
                     <Lock size={14} className="text-blue-600" /> Kata Sandi
                   </label>
-                  <Link href="#" className="text-xs font-bold text-blue-600 hover:underline">Lupa sandi?</Link>
+                  {/* Link lupa sandi udah gw benerin sekalian arahin ke /reset-password */}
+                  <button type="button" onClick={() => router.push('/reset-password')} className="text-xs font-bold text-blue-600 hover:underline">
+                    Lupa sandi?
+                  </button>
                 </div>
                 <input 
                   type="password" 
@@ -322,6 +253,7 @@ export default function LoginPage() {
             <p className="text-center text-sm text-stone-500 font-medium">
               Belum punya akun? <Link href="/register" className="text-blue-600 font-black hover:underline underline-offset-4">Daftar di sini</Link>
             </p>
+
           </div>
         </div>
       </div>
