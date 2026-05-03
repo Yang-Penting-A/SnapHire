@@ -77,5 +77,4 @@ export const requireRole = (allowedRoles: string[]) => {
 
 export const onlyAdmin = requireRole(['admin']);
 export const onlyHR = requireRole(['hr']);
-export const onlyApplicant = requireRole(['applicant']);
 export const onlyHROrAdmin = requireRole(['hr', 'admin']);
