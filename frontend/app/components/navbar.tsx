@@ -33,7 +33,7 @@ export default function Navbar() {
         <Link href="/login" className="text-sm font-semibold hover:text-blue-600 px-4">
           Login
         </Link>
-        <Link href="/register" className="bg-blue-600 text-white px-6 py-2.5 rounded-full text-sm font-semibold hover:bg-blue-700 transition-colors">
+        <Link href="/login" className="bg-blue-600 text-white px-6 py-2.5 rounded-full text-sm font-semibold hover:bg-blue-700 transition-colors">
           Register
         </Link>
       </div>
@@ -63,7 +63,7 @@ export default function Navbar() {
             <Link href="/login" className="w-full border border-slate-200 text-slate-700 px-6 py-3.5 rounded-2xl text-sm font-semibold hover:bg-slate-50 transition-colors text-center block">
               Login
             </Link>
-            <Link href="/register" className="w-full bg-blue-600 text-white px-6 py-3.5 rounded-2xl text-sm font-semibold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/20 text-center block">
+            <Link href="/login" className="w-full bg-blue-600 text-white px-6 py-3.5 rounded-2xl text-sm font-semibold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/20 text-center block">
               Register
             </Link>
           </div>
