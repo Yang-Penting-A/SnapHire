@@ -88,7 +88,7 @@ export default function JobBoard() {
             <h2 className="text-3xl font-bold text-slate-900 mb-2">Lowongan Terbaru</h2>
             <p className="text-slate-500">Temukan posisi yang pas untuk mengembangkan karirmu.</p>
           </div>
-          <Link href="/register" className="text-blue-600 font-semibold hover:text-blue-700 transition-colors">
+          <Link href="/login" className="text-blue-600 font-semibold hover:text-blue-700 transition-colors">
             Lihat Semua Lowongan &rarr;
           </Link>
         </div>
@@ -214,7 +214,7 @@ export default function JobBoard() {
                     Buat akun sekarang untuk membuka akses ke seluruh detail pekerjaan, persyaratan, dan langsung melamar.
                   </p>
                   
-                  <Link href="/register" className="inline-flex w-full sm:w-auto items-center justify-center bg-blue-600 text-white font-semibold px-8 py-3.5 rounded-xl hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/20">
+                  <Link href="/login" className="inline-flex w-full sm:w-auto items-center justify-center bg-blue-600 text-white font-semibold px-8 py-3.5 rounded-xl hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/20">
                     Daftar untuk Membaca Selengkapnya
                   </Link>
                   <p className="mt-4 text-xs text-slate-400">

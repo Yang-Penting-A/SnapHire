@@ -18,7 +18,7 @@ export default function AdminDashboard() {
       setIsLoading(true);
       try {
         const { count: userCount } = await supabase.from('users').select('*', { count: 'exact', head: true });
-        const { count: candidateCount } = await supabase.from('users').select('*', { count: 'exact', head: true }).eq('role', 'applicant');
+        const { count: candidateCount } = await supabase.from('candidates').select('*', { count: 'exact', head: true });
         const { count: hrCount } = await supabase.from('users').select('*', { count: 'exact', head: true }).eq('role', 'hr');
         const { count: jobCount } = await supabase.from('jobs').select('*', { count: 'exact', head: true });
 

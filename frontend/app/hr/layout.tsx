@@ -17,29 +17,44 @@ export default function HRLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const checkHR = async () => {
       try {
+        // PRIORITY 1: Check localStorage (fastest, already validated at auth callback)
         const storedUser = localStorage.getItem('user');
         if (storedUser) {
           try {
             const userData = JSON.parse(storedUser);
+            console.log('[HR] Checking stored user:', userData.email, userData.role);
+            
             if (userData?.role?.toLowerCase() === 'hr') {
+              console.log('[HR] ✅ Authorized via localStorage');
               setHrName(userData.name || 'HR snapHire');
               setIsAuthorized(true);
+              return; // CRITICAL: Stop execution here if localStorage is valid
             } else {
-              router.replace('/dashboard');
+              console.warn('[HR] User role is not HR:', userData.role);
+              await supabase.auth.signOut();
+              localStorage.removeItem('token');
+              localStorage.removeItem('user');
+              router.replace('/login');
               return;
             }
           } catch (e) {
-            console.warn('[HR] Stored user data invalid, checking session...');
+            console.warn('[HR] Stored user data invalid:', e);
+            // Don't return, continue to check Supabase session as fallback
           }
         }
 
+        // PRIORITY 2: Check Supabase session only if localStorage not available
+        console.log('[HR] localStorage not valid, checking Supabase session...');
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
         if (sessionError || !session) {
+          console.warn('[HR] No valid Supabase session found');
           await supabase.auth.signOut();
           router.replace('/login'); 
           return; 
         }
 
+        // Get role from database to verify
         const { data: userData } = await supabase
           .from('users')
           .select('role, name')
@@ -47,14 +62,19 @@ export default function HRLayout({ children }: { children: React.ReactNode }) {
           .maybeSingle();
 
         if (userData?.role?.toLowerCase() !== 'hr') { 
-          router.replace('/dashboard'); 
+          console.warn('[HR] Database role check failed:', userData?.role);
+          await supabase.auth.signOut();
+          router.replace('/login'); 
         } else { 
+          console.log('[HR] ✅ Authorized via Supabase session');
           setHrName(userData.name || 'HR snapHire');
           setIsAuthorized(true); 
         }
       } catch (err) {
         console.error('[HR] Security check error:', err);
         await supabase.auth.signOut();
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
         router.replace('/login');
       }
     };

@@ -16,7 +16,7 @@ export interface User {
   user_id: string;        
   name: string;         
   email: string;         
-  role: 'applicant' | 'hr' | 'admin';  
+  role: 'hr' | 'admin';  
   is_active: boolean;     
   created_at: string;    
   password?: string;      
@@ -44,7 +44,7 @@ export interface PaginationParams {
   order?: 'asc' | 'desc';
 }
 
-export type UserRole = 'admin' | 'hr' | 'applicant';
+export type UserRole = 'admin' | 'hr';
 
 export interface Job {
   job_id: string;

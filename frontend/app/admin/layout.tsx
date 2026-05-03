@@ -16,28 +16,37 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   useEffect(() => {
     const checkAdmin = async () => {
       try {
+        // PRIORITY 1: Check localStorage (fastest, already validated at auth callback)
         const storedUser = localStorage.getItem('user');
         if (storedUser) {
           try {
             const userData = JSON.parse(storedUser);
+            console.log('[ADMIN] Checking stored user:', userData.email, userData.role);
+            
             if (userData?.role?.toLowerCase() === 'admin') {
-              console.log('[ADMIN] Authorized via localStorage');
+              console.log('[ADMIN] ✅ Authorized via localStorage');
               setIsAuthorized(true);
-              return; 
+              return; // CRITICAL: Stop execution here if localStorage is valid
             } else {
-              console.log('[ADMIN] Role bukan admin, redirect to dashboard');
-              router.replace('/dashboard');
+              console.log('[ADMIN] Role bukan admin:', userData.role);
+              await supabase.auth.signOut();
+              localStorage.removeItem('token');
+              localStorage.removeItem('user');
+              router.replace('/login');
               return;
             }
           } catch (e) {
-            console.warn('[ADMIN] Stored user data invalid, checking session...');
+            console.warn('[ADMIN] Stored user data invalid:', e);
+            // Don't return, continue to check Supabase session as fallback
           }
         }
 
+        // PRIORITY 2: Check Supabase session only if localStorage not available
+        console.log('[ADMIN] localStorage not valid, checking Supabase session...');
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError || !session) {
-          console.warn('[ADMIN] Session invalid, clearing auth...');
+          console.warn('[ADMIN] No valid Supabase session found');
           await supabase.auth.signOut();
           router.replace('/login'); 
           return; 
@@ -52,14 +61,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         if (userData?.role?.toLowerCase() !== 'admin') { 
           console.log('[ADMIN] Database: Role bukan admin');
-          router.replace('/dashboard'); 
+          await supabase.auth.signOut();
+          router.replace('/login'); 
         } else { 
-          console.log('[ADMIN] Authorized via database');
+          console.log('[ADMIN] ✅ Authorized via Supabase session');
           setIsAuthorized(true); 
         }
       } catch (err) {
         console.error('[ADMIN] Security check error:', err);
         await supabase.auth.signOut();
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
         router.replace('/login');
       }
     };

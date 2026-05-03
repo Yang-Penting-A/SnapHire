@@ -79,7 +79,7 @@ export default function SearchBar() {
               <Link href="/login" className="w-full bg-blue-600 text-white font-semibold py-3.5 rounded-xl hover:bg-blue-700 transition-colors">
                 Login ke Akun
               </Link>
-              <Link href="/register" className="w-full bg-white text-slate-700 border border-slate-200 font-semibold py-3.5 rounded-xl hover:bg-slate-50 transition-colors">
+              <Link href="/login" className="w-full bg-white text-slate-700 border border-slate-200 font-semibold py-3.5 rounded-xl hover:bg-slate-50 transition-colors">
                 Daftar Akun Baru
               </Link>
             </div>

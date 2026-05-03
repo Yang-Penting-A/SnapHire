@@ -17,7 +17,7 @@ export default function HeroSection() {
         </p>
         
         <div className="flex flex-col sm:flex-row items-center justify-center md:justify-start gap-3 sm:gap-4 mt-4 w-full md:w-auto">
-          <Link href="/register" className="text-center block w-full sm:w-auto whitespace-nowrap shrink-0 bg-blue-600 text-white px-8 py-3.5 rounded-full font-semibold hover:bg-blue-700 transition-shadow shadow-lg shadow-blue-600/20">
+          <Link href="/login" className="text-center block w-full sm:w-auto whitespace-nowrap shrink-0 bg-blue-600 text-white px-8 py-3.5 rounded-full font-semibold hover:bg-blue-700 transition-shadow shadow-lg shadow-blue-600/20">
             Buat Akun Sekarang
           </Link>
           <Link href="/jobs" className="w-full sm:w-auto whitespace-nowrap shrink-0 bg-white text-slate-700 border border-slate-200 px-8 py-3.5 rounded-full font-semibold hover:bg-slate-50 transition-colors">
