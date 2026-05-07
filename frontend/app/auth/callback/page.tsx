@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/app/lib/supabase';
+import sessionManager from '@/app/lib/sessionManager';
 
 export default function AuthCallbackPage() {
   const router = useRouter();
@@ -184,11 +185,8 @@ export default function AuthCallbackPage() {
 
         console.log('[OAUTH CALLBACK] ✅ User synced:', userData);
 
-        // Store token and user in localStorage
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('token', token);
-          localStorage.setItem('user', JSON.stringify(userData));
-        }
+        // Store session with expiration timestamp
+        sessionManager.storeSession(token, userData);
 
         // Log activity
         const { error: logError } = await supabase.from('activity_logs').insert({

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../lib/supabase';
 import { Mail, Lock, LogIn, AlertCircle, Loader2 } from 'lucide-react';
+import sessionManager from '../lib/sessionManager';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -34,17 +35,18 @@ export default function LoginPage() {
     }
 
     const checkExistingSession = async () => {
-      const token = localStorage.getItem('token');
-      const storedUser = localStorage.getItem('user');
-
-      if (token && storedUser) {
+      // Use sessionManager to validate session with expiration checks
+      const validation = sessionManager.validateSession();
+      
+      if (validation.isValid) {
         try {
-          // Cross-check ke Supabase biar stabil (ngecek tokennya udah expired atau belum)
-          const { data: sessionData } = await supabase.auth.getSession();
-          
-          if (sessionData?.session) {
-            const userData = JSON.parse(storedUser);
-            console.log('[LOGIN] ✅ Active session found, redirecting...');
+          const session = sessionManager.getSession();
+          if (session?.user) {
+            const userData = session.user;
+            console.log('[LOGIN] ✅ Valid session found, redirecting...', {
+              expiresIn: validation.expiresIn,
+              user: userData.email
+            });
             
             // Redirect berdasarkan role
             const role = userData.role?.toLowerCase();
@@ -56,22 +58,20 @@ export default function LoginPage() {
               // Invalid role - sign out dan redirect to login
               console.warn('[LOGIN] Invalid role:', userData.role);
               await supabase.auth.signOut();
-              localStorage.removeItem('token');
-              localStorage.removeItem('user');
+              sessionManager.clearSession();
               router.push('/login');
             }
             return; // Stop render form login
-          } else {
-            // Kalau di localStorage ada tapi di Supabase expired, bersihin!
-            console.log('[LOGIN] ❌ Session expired in Supabase, clearing local storage.');
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
           }
         } catch (err) {
-          console.log('[LOGIN] Invalid stored user data');
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
+          console.error('[LOGIN] Error validating session:', err);
+          sessionManager.clearSession();
         }
+      } else {
+        // Session invalid or expired
+        console.log('[LOGIN] ❌ Session invalid:', validation.reason);
+        sessionManager.clearSession();
+        await supabase.auth.signOut();
       }
       setIsCheckingSession(false);
     };
@@ -82,10 +82,11 @@ export default function LoginPage() {
   // Detect logout/login di tab lain
   useEffect(() => {
     const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === 'token' && !event.newValue) {
-        window.location.href = '/login';
-      }
-      if (event.key === 'user' && event.newValue !== event.oldValue) {
+      // If token or timestamp is removed/changed in another tab
+      if (event.key === 'token' || 
+          event.key === 'session_timestamp' || 
+          event.key === 'user' && event.newValue !== event.oldValue) {
+        console.log('[LOGIN] Storage changed in another tab, redirecting to login...');
         window.location.href = '/login';
       }
     };
@@ -157,10 +158,8 @@ export default function LoginPage() {
       const loginData = await response.json();
       const userData = loginData.data;
 
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify(userData));
-      }
+      // Store session with expiration timestamp
+      sessionManager.storeSession(token, userData);
 
       // catat activity log
       const { error: logError } = await supabase.from('activity_logs').insert({

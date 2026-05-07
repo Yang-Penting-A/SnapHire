@@ -2,7 +2,10 @@
  * API Utility Functions with Token Authentication
  * 
  * Provides fetch wrapper that automatically includes JWT token from localStorage
+ * with session expiration validation
  */
+
+import sessionManager from './sessionManager';
 
 export interface ApiOptions extends RequestInit {
   includeToken?: boolean;
@@ -10,6 +13,9 @@ export interface ApiOptions extends RequestInit {
 
 /**
  * Fetch wrapper that automatically includes JWT token in Authorization header
+ * 
+ * Validates session expiration before making the request.
+ * If session is expired, logs out the user automatically.
  * 
  * @param url - The API endpoint path (without base URL)
  * @param options - Fetch options
@@ -34,9 +40,22 @@ export async function apiFetch(
 
   // Include JWT token if available and not explicitly disabled
   if (includeToken && typeof window !== 'undefined') {
-    const token = localStorage.getItem('token');
+    // Validate session before using token
+    const validation = sessionManager.validateSession();
+    if (!validation.isValid) {
+      console.warn('[API] ⚠️ Session expired or invalid:', validation.reason);
+      sessionManager.clearSession();
+      throw new Error('Session expired. Please login again.');
+    }
+    
+    // Use sessionManager to get valid token
+    const token = sessionManager.getToken();
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
+    } else {
+      console.warn('[API] ⚠️ No valid token found');
+      sessionManager.clearSession();
+      throw new Error('No valid session. Please login again.');
     }
   }
 
@@ -72,25 +91,39 @@ export async function apiRequest<T = any>(
 }
 
 /**
- * Get stored JWT token from localStorage
+ * Get stored JWT token from localStorage if session is valid
+ * Returns null if session is expired
  */
 export function getToken(): string | null {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem('token');
+  
+  // Validate session before returning token
+  const validation = sessionManager.validateSession();
+  if (!validation.isValid) {
+    console.warn('[API] Session expired, clearing token');
+    sessionManager.clearSession();
+    return null;
+  }
+  
+  return sessionManager.getToken();
 }
 
 /**
- * Get stored user data from localStorage
+ * Get stored user data from localStorage if session is valid
+ * Returns null if session is expired
  */
 export function getUserData() {
   if (typeof window === 'undefined') return null;
-  const userData = localStorage.getItem('user');
-  if (!userData) return null;
-  try {
-    return JSON.parse(userData);
-  } catch {
+  
+  // Validate session before returning user data
+  const validation = sessionManager.validateSession();
+  if (!validation.isValid) {
+    console.warn('[API] Session expired, clearing user data');
+    sessionManager.clearSession();
     return null;
   }
+  
+  return sessionManager.getUserData();
 }
 
 /**
@@ -98,6 +131,5 @@ export function getUserData() {
  */
 export function clearAuth() {
   if (typeof window === 'undefined') return;
-  localStorage.removeItem('token');
-  localStorage.removeItem('user');
+  sessionManager.clearSession();
 }
