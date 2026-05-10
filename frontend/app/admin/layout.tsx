@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '@/app/lib/supabase';
+import sessionManager from '@/app/lib/sessionManager';
 import { LayoutDashboard, Users, Menu, X, FileText, LogOut, Loader2 } from 'lucide-react';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -16,67 +17,109 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   useEffect(() => {
     const checkAdmin = async () => {
       try {
-        // PRIORITY 1: Check localStorage (fastest, already validated at auth callback)
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-          try {
-            const userData = JSON.parse(storedUser);
-            console.log('[ADMIN] Checking stored user:', userData.email, userData.role);
-            
-            if (userData?.role?.toLowerCase() === 'admin') {
-              console.log('[ADMIN] ✅ Authorized via localStorage');
-              setIsAuthorized(true);
-              return; // CRITICAL: Stop execution here if localStorage is valid
-            } else {
-              console.log('[ADMIN] Role bukan admin:', userData.role);
-              await supabase.auth.signOut();
-              localStorage.removeItem('token');
-              localStorage.removeItem('user');
-              router.replace('/login');
-              return;
-            }
-          } catch (e) {
-            console.warn('[ADMIN] Stored user data invalid:', e);
-            // Don't return, continue to check Supabase session as fallback
-          }
-        }
-
-        // PRIORITY 2: Check Supabase session only if localStorage not available
-        console.log('[ADMIN] localStorage not valid, checking Supabase session...');
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        // Use sessionManager to validate session with expiration checks
+        const validation = sessionManager.validateSession();
         
-        if (sessionError || !session) {
-          console.warn('[ADMIN] No valid Supabase session found');
+        if (!validation.isValid) {
+          console.log('[ADMIN] Session invalid:', validation.reason);
+          sessionManager.clearSession();
           await supabase.auth.signOut();
-          router.replace('/login'); 
-          return; 
+          router.replace('/login');
+          return;
+        }
+        
+        const session = sessionManager.getSession();
+        if (!session?.user) {
+          console.warn('[ADMIN] Session found but no user data');
+          sessionManager.clearSession();
+          await supabase.auth.signOut();
+          router.replace('/login');
+          return;
         }
 
-        // Query database untuk cek role 
-        const { data: userData } = await supabase
-          .from('users')
-          .select('role')
-          .eq('user_id', session.user.id)
-          .maybeSingle();
-
-        if (userData?.role?.toLowerCase() !== 'admin') { 
-          console.log('[ADMIN] Database: Role bukan admin');
+        if (session.user?.role?.toLowerCase() !== 'admin') {
+          console.log('[ADMIN] Role bukan admin:', session.user.role);
+          sessionManager.clearSession();
           await supabase.auth.signOut();
-          router.replace('/login'); 
-        } else { 
-          console.log('[ADMIN] ✅ Authorized via Supabase session');
-          setIsAuthorized(true); 
+          router.replace('/login');
+          return;
         }
+
+        console.log('[ADMIN] ✅ Authorized via sessionManager', {
+          user: session.user.email,
+          expiresIn: validation.expiresIn
+        });
+        setIsAuthorized(true);
       } catch (err) {
         console.error('[ADMIN] Security check error:', err);
+        sessionManager.clearSession();
         await supabase.auth.signOut();
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
         router.replace('/login');
       }
     };
     checkAdmin();
   }, [router]);
+
+  // ACTIVITY TRACKING & INACTIVITY MONITORING
+  useEffect(() => {
+    if (!isAuthorized) return;
+
+    let inactivityTimer: NodeJS.Timeout | null = null;
+    let warningTimeout: NodeJS.Timeout | null = null;
+    const INACTIVITY_WARNING_THRESHOLD = 60; // Show warning 60 seconds before logout
+    
+    const resetInactivityTimer = () => {
+      // Record activity
+      sessionManager.recordActivity();
+      
+      // Clear existing timers
+      if (inactivityTimer) clearTimeout(inactivityTimer);
+      if (warningTimeout) clearTimeout(warningTimeout);
+      
+      const inactivityRemaining = sessionManager.getInactivityTimeRemaining();
+      if (inactivityRemaining === null || inactivityRemaining <= 0) {
+        handleInactivityLogout();
+        return;
+      }
+      
+      // Set warning timeout (before actual logout)
+      if (inactivityRemaining > INACTIVITY_WARNING_THRESHOLD) {
+        warningTimeout = setTimeout(() => {
+          console.warn('[ADMIN] ⏰ Inactivity warning - will logout soon');
+        }, (inactivityRemaining - INACTIVITY_WARNING_THRESHOLD) * 1000);
+      }
+      
+      // Set logout timeout
+      inactivityTimer = setTimeout(() => {
+        handleInactivityLogout();
+      }, inactivityRemaining * 1000);
+    };
+    
+    const handleInactivityLogout = async () => {
+      console.warn('[ADMIN] 🔴 Inactivity timeout - logging out');
+      sessionManager.clearSession();
+      await supabase.auth.signOut();
+      router.replace('/login?reason=inactivity_timeout');
+    };
+    
+    // Track user activity on various events
+    const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
+    const listeners = events.map(event => 
+      addEventListener(event, resetInactivityTimer, true)
+    );
+    
+    // Initial setup
+    resetInactivityTimer();
+    
+    return () => {
+      // Cleanup
+      if (inactivityTimer) clearTimeout(inactivityTimer);
+      if (warningTimeout) clearTimeout(warningTimeout);
+      events.forEach(event => 
+        removeEventListener(event, resetInactivityTimer, true)
+      );
+    };
+  }, [isAuthorized, router]);
 
   const toggleMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
   const closeMenu = () => setIsMobileMenuOpen(false);
@@ -149,12 +192,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="p-4 border-t border-stone-50">
           <button 
             onClick={async () => {
-              // Clear localStorage dulu sebelum logout
-              if (typeof window !== 'undefined') {
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
-              }
-              // logout dari Supabase
+              sessionManager.clearSession();
               await supabase.auth.signOut();
               router.replace('/login');
             }}
