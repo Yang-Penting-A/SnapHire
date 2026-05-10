@@ -260,8 +260,8 @@ export default function LoginPage() {
                   <label className="text-sm font-bold text-stone-800 flex items-center gap-2">
                     <Lock size={14} className="text-blue-600" /> Kata Sandi
                   </label>
-                  {/* Link lupa sandi ke /reset-password */}
-                  <button type="button" onClick={() => router.push('/reset-password')} className="text-xs font-bold text-blue-600 hover:underline">
+                  {/* Link lupa sandi ke /auth/forgot-password */}
+                  <button type="button" onClick={() => router.push('/auth/forgot-password')} className="text-xs font-bold text-blue-600 hover:underline">
                     Lupa sandi?
                   </button>
                 </div>

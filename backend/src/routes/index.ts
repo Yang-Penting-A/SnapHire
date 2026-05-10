@@ -120,6 +120,73 @@ router.post(
   }
 );
 
+// Reset Password - No auth required since user is not logged in
+router.post(
+  '/auth/reset-password',
+  async (req: Request, res: Response) => {
+    try {
+      const { email, newPassword } = req.body;
+
+      // Validation
+      if (!email || !newPassword) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'Email dan password baru wajib diisi'
+        });
+      }
+
+      if (newPassword.length < 8) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'Password minimal 8 karakter'
+        });
+      }
+
+      // Check if user exists in database
+      const userResult = await supabaseService.select('users', {
+        email: email.toLowerCase()
+      });
+
+      if (!userResult.success || !userResult.data || userResult.data.length === 0) {
+        console.warn('[RESET PASSWORD] User not found:', email);
+        return res.status(404).json({
+          status: 'error',
+          message: 'Email tidak ditemukan dalam sistem'
+        });
+      }
+
+      const user = userResult.data[0];
+      const userId = user.user_id;
+
+      // Use Supabase admin API to update password
+      const { supabase } = require('../services/supabase');
+      const { error: updateError } = await supabase.auth.admin.updateUserById(
+        userId,
+        { password: newPassword }
+      );
+
+      if (updateError) {
+        console.error('[RESET PASSWORD] Supabase update error:', updateError.message);
+        return res.status(500).json({
+          status: 'error',
+          message: 'Gagal memperbarui password. Silahkan coba lagi.'
+        });
+      }
+
+      console.log(`[RESET PASSWORD] ✅ Password reset successful for ${email}`);
+      res.status(200).json({
+        status: 'success',
+        message: 'Password berhasil diperbarui'
+      });
+    } catch (error: any) {
+      console.error('[RESET PASSWORD] Error:', error.message);
+      res.status(500).json({
+        status: 'error',
+        message: error.message || 'Terjadi kesalahan saat mereset password'
+      });
+    }
+  }
+);
 
 router.get(
   '/jobs',
