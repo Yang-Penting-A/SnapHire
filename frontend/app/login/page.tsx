@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../lib/supabase';
-import { Mail, Lock, LogIn, AlertCircle, Loader2 } from 'lucide-react';
+import { Mail, Lock, LogIn, AlertCircle, Loader2, Eye, EyeOff } from 'lucide-react';
 import sessionManager from '../lib/sessionManager';
 
 export default function LoginPage() {
@@ -14,6 +14,7 @@ export default function LoginPage() {
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -200,9 +201,6 @@ export default function LoginPage() {
     );
   }
 
-  // BLOK IF (hasActiveSession) UDAH DIHAPUS TOTAL DI SINI
-
-  // view saat belum ada session, tampilkan form login
   return (
     <div className="min-h-screen bg-[#F4F7FE] flex items-center justify-center p-4 md:p-8 font-sans">
       <div className="max-w-6xl w-full grid md:grid-cols-2 gap-12 items-center">
@@ -262,19 +260,33 @@ export default function LoginPage() {
                   <label className="text-sm font-bold text-stone-800 flex items-center gap-2">
                     <Lock size={14} className="text-blue-600" /> Kata Sandi
                   </label>
-                  {/* Link lupa sandi udah gw benerin sekalian arahin ke /reset-password */}
+                  {/* Link lupa sandi ke /reset-password */}
                   <button type="button" onClick={() => router.push('/reset-password')} className="text-xs font-bold text-blue-600 hover:underline">
                     Lupa sandi?
                   </button>
                 </div>
-                <input 
-                  type="password" 
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••" 
-                  className="w-full px-5 py-4 rounded-2xl border border-stone-200 text-stone-900 font-bold focus:outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-600 transition-all placeholder:text-stone-300"
-                />
+                <div className="relative">
+                  <input 
+                    type={showPassword ? 'text' : 'password'} 
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••" 
+                    className="w-full px-5 py-4 pr-14 rounded-2xl border border-stone-200 text-stone-900 font-bold focus:outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-600 transition-all placeholder:text-stone-300"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-500 hover:text-stone-700 transition-colors p-1 cursor-pointer"
+                  >
+                    {showPassword ? (
+                      <Eye size={20} className="stroke-[1.5]" />
+                    ) : (
+                      <EyeOff size={20} className="stroke-[1.5]" />
+                    )}
+                  </button>
+                </div>
               </div>
 
               <button 
