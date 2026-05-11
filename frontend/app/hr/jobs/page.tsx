@@ -6,7 +6,7 @@ import { supabase } from '@/app/lib/supabase';
 import { 
   Plus, Search, Edit2, Trash2, 
   MapPin, Loader2, X, CheckCircle2, Calendar, FileText, Sparkles,
-  Briefcase, Inbox, ChevronLeft, ChevronRight
+  Briefcase, Inbox, ChevronLeft, ChevronRight, Link as LinkIcon
 } from 'lucide-react';
 
 export default function KelolaLowongan() {
@@ -110,9 +110,7 @@ export default function KelolaLowongan() {
         <div className="flex justify-between items-center pt-2">
           <div>
             <h1 className="text-3xl font-black text-stone-900 uppercase tracking-tight">Kelola Lowongan</h1>
-            <p className="text-stone-500 font-medium">Atur strategi rekrutmen dan optimasi pencarian bakat.
-
-</p>
+            <p className="text-stone-500 font-medium">Atur strategi rekrutmen dan optimasi pencarian bakat.</p>
           </div>
           <button onClick={() => openModal()} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl font-black uppercase text-xs tracking-widest flex items-center gap-2 shadow-lg shadow-blue-600/20 active:scale-95 transition-all">
             <Plus size={18} strokeWidth={3} /> TAMBAH LOWONGAN
@@ -129,7 +127,7 @@ export default function KelolaLowongan() {
         </div>
       </div>
 
-      {/* TABLE CONTAINER - Fit to content with max-height */}
+      {/* TABLE CONTAINER */}
       <div className="bg-white rounded-[2.5rem] border border-stone-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden h-fit max-h-[calc(100vh-20rem)] flex flex-col">
         <div className="overflow-x-auto overflow-y-auto">
           <table className="w-full text-left border-collapse table-fixed min-w-[900px]">
@@ -200,44 +198,94 @@ export default function KelolaLowongan() {
         )}
       </div>
 
-      {/* MODAL - Sama seperti sebelumnya namun disesuaikan sedikit UI-nya */}
+      {/* MODAL */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-end bg-stone-900/40 backdrop-blur-sm">
-          <div className="w-full max-w-2xl h-full bg-white shadow-2xl p-10 overflow-y-auto animate-in slide-in-from-right duration-500">
-            <div className="flex justify-between items-center mb-8 sticky top-0 bg-white/90 py-2 z-10 border-b border-stone-100">
-              <h2 className="text-2xl font-black text-stone-900 uppercase tracking-tight">{editingId ? 'Edit Lowongan' : 'Buat Lowongan'}</h2>
-              <button onClick={() => setIsModalOpen(false)} className="p-2 text-stone-400 hover:bg-stone-100 rounded-full transition-colors"><X size={24} /></button>
+        <div className="fixed inset-0 z-[100] flex items-center justify-end bg-stone-900/40 backdrop-blur-sm transition-all duration-500">
+          <div className="w-full max-w-2xl h-full bg-white shadow-2xl p-8 sm:p-12 overflow-y-auto animate-in slide-in-from-right duration-500">
+            
+            <div className="flex justify-between items-center mb-10 sticky top-0 bg-white/90 backdrop-blur-md py-4 z-10 border-b border-stone-100">
+              <h2 className="text-2xl font-black text-stone-900 tracking-tight uppercase">
+                {editingId ? 'EDIT DATA' : 'BUAT LOWONGAN'}
+              </h2>
+              <button onClick={() => setIsModalOpen(false)} className="p-3 text-stone-400 hover:text-stone-800 hover:bg-stone-100 rounded-full transition-colors">
+                <X size={24} strokeWidth={2.5} />
+              </button>
             </div>
-            <form className="space-y-6 pb-20">
-               {/* Form fields here (title, skills, dept, location, etc) */}
-               <div className="bg-stone-50 p-6 rounded-3xl space-y-6 border border-stone-100">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">Judul Pekerjaan</label>
-                    <input required name="title" value={formData.title} onChange={handleChange} className="w-full p-4 bg-white border border-stone-200 rounded-2xl font-bold text-stone-800 outline-none focus:ring-4 focus:ring-blue-500/10" placeholder="e.g. Frontend Engineer" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-blue-600 uppercase tracking-widest ml-1">Required Skills (Koma)</label>
-                    <input name="required_skills" value={formData.required_skills} onChange={handleChange} className="w-full p-4 bg-blue-50/50 border border-blue-100 rounded-2xl font-bold text-blue-900 outline-none" placeholder="React, Tailwind, etc" />
-                  </div>
-               </div>
-               <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">Sistem</label>
-                    <select name="work_type" value={formData.work_type} onChange={handleChange} className="w-full p-4 bg-white border border-stone-200 rounded-2xl font-bold outline-none"><option value="On-site">On-site</option><option value="Remote">Remote</option><option value="Hybrid">Hybrid</option></select>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">Tipe</label>
-                    <select name="employment_type" value={formData.employment_type} onChange={handleChange} className="w-full p-4 bg-white border border-stone-200 rounded-2xl font-bold outline-none"><option value="Full-time">Full-time</option><option value="Part-time">Part-time</option><option value="Contract">Contract</option><option value="Internship">Internship</option></select>
-                  </div>
-               </div>
-               <div className="space-y-2">
-                  <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">Deskripsi</label>
-                  <textarea rows={4} name="description" value={formData.description} onChange={handleChange} className="w-full p-4 bg-white border border-stone-200 rounded-2xl font-medium outline-none resize-none" />
-               </div>
-               <div className="fixed bottom-0 right-0 w-full max-w-2xl p-6 bg-white/95 backdrop-blur-xl border-t border-stone-100 flex gap-4">
-                  <button type="button" disabled={isSubmitting} onClick={(e) => handleSubmit(e, 'draft')} className="flex-1 py-4 bg-stone-50 text-stone-600 font-black rounded-2xl uppercase text-[10px] tracking-widest transition-all">Draft</button>
-                  <button type="button" disabled={isSubmitting} onClick={(e) => handleSubmit(e, 'active')} className="flex-[2] py-4 bg-blue-600 text-white font-black rounded-2xl uppercase text-[10px] tracking-widest shadow-xl shadow-blue-600/20 active:scale-95 transition-all">Posting Sekarang</button>
-               </div>
+
+            <form className="space-y-6 pb-32">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">Judul Pekerjaan</label>
+                <input required name="title" value={formData.title} onChange={handleChange} className="w-full p-4 bg-white border border-stone-200 rounded-2xl font-bold text-stone-800 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all" placeholder="e.g. Senior Frontend Engineer" />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-blue-600 uppercase tracking-widest flex items-center gap-2 ml-1">
+                  <LinkIcon size={14} className="text-blue-500" /> Required Skills (Pisahkan dengan koma)
+                </label>
+                <input name="required_skills" value={formData.required_skills} onChange={handleChange} className="w-full p-4 bg-blue-50/50 border border-blue-200 rounded-2xl font-bold text-blue-900 outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-blue-300" placeholder="e.g. React, TypeScript, Tailwind CSS, Figma" />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">Departemen</label>
+                  <input name="department" value={formData.department} onChange={handleChange} className="w-full p-4 bg-white border border-stone-200 rounded-2xl font-bold text-stone-800 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all" placeholder="Design/IT" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">Deadline (Due Date)</label>
+                  <input type="date" name="due_date" value={formData.due_date} onChange={handleChange} className="w-full p-4 bg-white border border-stone-200 rounded-2xl font-bold text-stone-800 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all uppercase" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">Lokasi (Kota, Negara)</label>
+                  <input name="location" value={formData.location} onChange={handleChange} className="w-full p-4 bg-white border border-stone-200 rounded-2xl font-bold text-stone-800 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all" placeholder="Jakarta, Indonesia" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">Sistem Kerja</label>
+                  <select name="work_type" value={formData.work_type} onChange={handleChange} className="w-full p-4 bg-white border border-stone-200 rounded-2xl font-bold text-stone-800 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all appearance-none cursor-pointer">
+                    <option value="On-site">On-site</option>
+                    <option value="Remote">Remote</option>
+                    <option value="Hybrid">Hybrid</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">Tipe Pekerjaan</label>
+                <select name="employment_type" value={formData.employment_type} onChange={handleChange} className="w-full p-4 bg-white border border-stone-200 rounded-2xl font-bold text-stone-800 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all appearance-none cursor-pointer">
+                  <option value="Full-time">Full-time</option>
+                  <option value="Part-time">Part-time</option>
+                  <option value="Contract">Contract</option>
+                  <option value="Internship">Internship</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">Gaji Minimal (IDR)</label>
+                  <input type="number" name="salary_min" value={formData.salary_min} onChange={handleChange} className="w-full p-4 bg-white border border-stone-200 rounded-2xl font-bold text-stone-800 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all" placeholder="5000000" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">Gaji Maksimal (IDR)</label>
+                  <input type="number" name="salary_max" value={formData.salary_max} onChange={handleChange} className="w-full p-4 bg-white border border-stone-200 rounded-2xl font-bold text-stone-800 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all" placeholder="15000000" />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">Deskripsi Lowongan</label>
+                <textarea rows={4} name="description" value={formData.description} onChange={handleChange} className="w-full p-4 bg-white border border-stone-200 rounded-2xl font-medium text-stone-800 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all resize-y" placeholder="Jelaskan peran ini secara detail..." />
+              </div>
+
+              <div className="fixed bottom-0 right-0 w-full max-w-2xl p-6 sm:p-8 bg-white/95 backdrop-blur-xl border-t border-stone-100 flex gap-4 z-20">
+                <button type="button" disabled={isSubmitting} onClick={(e) => handleSubmit(e, 'draft')} className="flex-1 py-4 bg-stone-50 border border-stone-200 text-stone-600 font-black rounded-2xl hover:bg-stone-100 uppercase text-[11px] tracking-widest flex items-center justify-center gap-2 transition-all shadow-sm">
+                  SIMPAN DRAFT
+                </button>
+                <button type="button" disabled={isSubmitting} onClick={(e) => handleSubmit(e, 'active')} className="flex-[2] py-4 bg-blue-600 text-white font-black rounded-2xl hover:bg-blue-700 shadow-xl shadow-blue-600/20 uppercase text-[11px] tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95">
+                  {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : null}
+                  POSTING SEKARANG
+                </button>
+              </div>
             </form>
           </div>
         </div>
