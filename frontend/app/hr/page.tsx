@@ -1,303 +1,371 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import {
-  Users, Briefcase, FileCheck, Clock, CalendarCheck, TrendingUp,
-  Loader2, CheckCircle, AlertCircle
-} from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/app/lib/supabase';
+import { 
+  Users, Briefcase, FileCheck, Calendar, Sparkles, TrendingUp, 
+  Clock, Plus, ScanSearch, Target, UserMinus, Loader2, ArrowRight, CheckCircle2
+} from 'lucide-react';
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid,
-  Tooltip as RechartsTooltip, ResponsiveContainer,
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Bar, Cell
 } from 'recharts';
 
-interface DashboardStats {
-  totalKandidat: number;
-  lowonganAktif: number;
-  cvTerproses: number;
-  interviewHariIni: number;
-  offerAcceptanceRate: number;
-  avgAiScore: number;
-  avgTimeToHire: number;
-  ditolakMingguIni: number;
-}
-
-interface PipelineData {
-  stage: string;
-  count: number;
-  color: string;
-  textColor: string;
-}
-
-interface InterviewSchedule {
-  jam: string;
-  nama: string;
-  posisi: string;
-  tahap: string;
-  status: 'confirmed' | 'pending';
-}
-
-interface CandidateRecent {
-  initials: string;
-  nama: string;
-  posisi: string;
-  stage: string;
-  stageColor: 'blue' | 'green' | 'amber' | 'red' | 'purple' | 'gray';
-}
-
-interface JobStatus {
-  title: string;
-  count: number;
-  status: 'active' | 'closing';
-}
-
-// Komponen Helper Internal
-const Badge = ({ children, color }: { children: React.ReactNode; color: 'blue' | 'green' | 'amber' | 'red' | 'purple' | 'gray'; }) => {
-  const colorMap = {
-    blue: 'bg-blue-50 text-blue-700',
-    green: 'bg-emerald-50 text-emerald-700',
-    amber: 'bg-amber-50 text-amber-700',
-    red: 'bg-red-50 text-red-700',
-    purple: 'bg-violet-50 text-violet-700',
-    gray: 'bg-stone-100 text-stone-600',
-  };
-  return (
-    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${colorMap[color] || colorMap.gray}`}>
-      {children}
-    </span>
-  );
-};
-
-const MetricCard = ({ label, value, sub, subPositive, icon, iconBg, isLoading }: { label: string; value: string | number; sub?: string; subPositive?: boolean; icon: React.ReactNode; iconBg: string; isLoading?: boolean; }) => (
-  <div className="bg-white rounded-2xl border border-stone-100 p-5 flex flex-col gap-3 hover:shadow-md hover:border-blue-100 transition-all">
-    <div className="flex items-start justify-between">
-      <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest leading-tight">{label}</p>
-      <div className={`p-2.5 rounded-xl ${iconBg}`}>{icon}</div>
-    </div>
-    {isLoading ? (
-      <Loader2 size={22} className="text-stone-200 animate-spin" />
-    ) : (
-      <div>
-        <p className="text-3xl font-black text-stone-800 tracking-tight">{value}</p>
-        {sub && (
-          <p className={`text-[11px] font-medium mt-1 ${subPositive === false ? 'text-red-500' : subPositive === true ? 'text-emerald-600' : 'text-stone-400'}`}>
-            {sub}
-          </p>
-        )}
-      </div>
-    )}
-  </div>
-);
-
-export default function HRDashboardPage() {
+export default function HRDashboard() {
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
-  const [stats, setStats] = useState<DashboardStats>({
-    totalKandidat: 0, lowonganAktif: 0, cvTerproses: 0, interviewHariIni: 0,
-    offerAcceptanceRate: 0, avgAiScore: 0, avgTimeToHire: 0, ditolakMingguIni: 0,
-  });
   
-  const [pipelineData, setPipelineData] = useState<PipelineData[]>([]);
-  const [recentCandidates, setRecentCandidates] = useState<CandidateRecent[]>([]);
-  const [activeJobs, setActiveJobs] = useState<JobStatus[]>([]);
+  // Stats State
+  const [stats, setStats] = useState({
+    totalCandidates: 0,
+    activeJobs: 0,
+    aiProcessed: 0,
+    interviewsToday: 0,
+    avgAiScore: 0,
+    offerRate: 0,
+    timeToHire: 14,
+    rejectedCount: 0
+  });
+
+  // Data Lists State
+  const [pipeline, setPipeline] = useState<any[]>([]);
+  const [trendData, setTrendData] = useState<any[]>([]);
+  const [topPositions, setTopPositions] = useState<any[]>([]);
+  const [recentCandidates, setRecentCandidates] = useState<any[]>([]);
+  const [activeJobsList, setActiveJobsList] = useState<any[]>([]);
+  const [interviewSchedule, setInterviewSchedule] = useState<any[]>([]);
 
   useEffect(() => {
-    const fetchAll = async () => {
+    const fetchDashboardData = async () => {
       setIsLoading(true);
       try {
         const todayStr = new Date().toISOString().split('T')[0];
 
-        // 1. Fetch Agregasi Dasar (Pisahkan Jobs agar lebih aman)
-        const [
-          kandidatRes,
-          cvRes,
-          interviewRes
-        ] = await Promise.all([
+        const [kandidatRes, jobsRes, appsRes] = await Promise.all([
           supabase.from('candidates').select('*', { count: 'exact', head: true }),
-          supabase.from('applications').select('*', { count: 'exact', head: true }).not('ai_score', 'is', null),
-          // Menggunakan ilike agar tidak peduli huruf besar/kecil
-          supabase.from('applications').select('*', { count: 'exact', head: true }).ilike('status_application', 'interview') 
+          supabase.from('jobs').select('job_id, title, status_job, created_at, applications(count)').eq('status_job', 'active'),
+          supabase.from('applications').select(`
+            application_id, status_application, ai_score, created_at, 
+            candidates(name), jobs(title)
+          `)
         ]);
 
-        const countKandidat = kandidatRes.count || 0;
-        const countCV = cvRes.count || 0;
-        const countInterview = interviewRes.count || 0;
+        const allApps = appsRes.data || [];
+        const activeJobs = jobsRes.data || [];
 
-        // 2. Fetch Jobs secara Terpisah (Anti Gagal)
-        const { data: rawJobs, error: jobsError } = await supabase
-          .from('jobs')
-          .select('*, applications(application_id)');
+        const scores = allApps.map(a => a.ai_score).filter(s => s !== null) as number[];
+        const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+        const rejected = allApps.filter(a => a.status_application?.toLowerCase() === 'rejected').length;
+        const hiredCount = allApps.filter(a => a.status_application?.toLowerCase() === 'hired').length;
+        const todayInterviews = allApps.filter(a => a.status_application?.toLowerCase() === 'interview');
 
-        let safeJobs = rawJobs || [];
-        if (jobsError) {
-          console.warn("Relasi applications gagal, mengambil data jobs saja...", jobsError);
-          const { data: fallbackJobs } = await supabase.from('jobs').select('*');
-          safeJobs = fallbackJobs || [];
-        }
-
-        // FILTER JAVASCRIPT: Kebal dari case-sensitive & due_date otomatis terfilter
-        const validJobs = safeJobs.filter(job => {
-          const isStatusActive = job.status_job?.toLowerCase() === 'active';
-          const isNotExpired = !job.due_date || job.due_date >= todayStr;
-          return isStatusActive && isNotExpired;
-        });
-
-        const countJobs = validJobs.length; // Angka ini akan 100% akurat untuk Card Metrik
-
-        // 3. Pipeline Rekrutmen
         const stages = [
-          { stage: 'Melamar', key: 'applied', color: '#BFDBFE', textColor: '#1e40af' },
-          { stage: 'Screening', key: 'screening', color: '#60A5FA', textColor: '#fff' },
-          { stage: 'Interview', key: 'interview', color: '#2563EB', textColor: '#fff' },
-          { stage: 'Diterima', key: 'hired', color: '#065f46', textColor: '#fff' },
+          { label: 'Review', key: 'Review AI', color: '#bcbec1' },
+          { label: 'Screening', key: 'Shortlisted', color: '#60A5FA' },
+          { label: 'Interview', key: 'Interview', color: '#8b5cf6' },
+          { label: 'Technical Test', key: 'Technical Test', color: '#f59e0b' },
+          { label: 'Hired', key: 'Hired', color: '#10b981' },
+          { label: 'Rejected', key: 'Rejected', color: '#ef4444' }
         ];
-
-        const pipelineCounts = await Promise.all(
-          stages.map(({ key }) =>
-            // Gunakan ilike agar kebal huruf besar/kecil
-            supabase.from('applications').select('*', { count: 'exact', head: true }).ilike('status_application', key)
-          )
-        );
-
-        const pipeline: PipelineData[] = stages.map((s, i) => ({
-          ...s, count: pipelineCounts[i].count || 0,
+        
+        const pipelineMapped = stages.map(s => ({
+          name: s.label,
+          count: allApps.filter(a => a.status_application?.toLowerCase() === s.key.toLowerCase()).length,
+          color: s.color
         }));
-        setPipelineData(pipeline);
 
-        // 4. Fetch Kandidat Terbaru 
-        const { data: recentData } = await supabase
-          .from('applications')
-          .select(`application_id, status_application, created_at, candidates(name), jobs(title)`)
-          .order('created_at', { ascending: false })
-          .limit(5);
-
-        if (recentData) {
-          const colorMap: Record<string, 'blue' | 'green' | 'amber' | 'red' | 'purple' | 'gray'> = {
-            applied: 'blue', screening: 'amber', interview: 'purple', technical: 'amber', offered: 'green', hired: 'green', rejected: 'red'
+        const last7Days = [...Array(7)].map((_, i) => {
+          const d = new Date();
+          d.setDate(d.getDate() - i);
+          const dateStr = d.toISOString().split('T')[0];
+          return {
+            date: d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
+            count: allApps.filter(a => a.created_at.startsWith(dateStr)).length,
           };
-          const mappedRecent = recentData.map((app: any) => {
-            const name = app.candidates?.name || 'Pelamar Baru';
-            const stage = app.status_application?.toLowerCase() || 'applied'; // Paksa kecilkan huruf
-            return {
-              initials: name.substring(0, 2).toUpperCase(),
-              nama: name,
-              posisi: app.jobs?.title || 'Posisi Tidak Diketahui',
-              stage: stage.charAt(0).toUpperCase() + stage.slice(1),
-              stageColor: colorMap[stage] || 'gray'
-            };
-          });
-          setRecentCandidates(mappedRecent);
-        }
+        }).reverse();
 
-        // 5. Setup Lowongan Aktif List (Gunakan validJobs yang sudah bersih)
-        const sortedJobs = [...validJobs]
-          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        const sortedPositions = activeJobs
+          .map(j => ({ name: j.title, count: (j.applications as any)[0]?.count || 0 }))
+          .sort((a, b) => b.count - a.count)
           .slice(0, 5);
 
-        setActiveJobs(
-          sortedJobs.map((job: any): JobStatus => ({
-            title: job.title || 'Untitled Job',
-            count: job.applications ? job.applications.length : 0,
-            status: 'active'
-          }))
-        );
-
-        // 6. Update State Statistik Utama
         setStats({
-          totalKandidat: countKandidat,
-          lowonganAktif: countJobs,
-          cvTerproses: countCV,
-          interviewHariIni: countInterview, 
-          offerAcceptanceRate: 85, 
-          avgAiScore: 70, 
-          avgTimeToHire: 18, 
-          ditolakMingguIni: 8,
+          totalCandidates: kandidatRes.count || 0,
+          activeJobs: activeJobs.length,
+          aiProcessed: scores.length,
+          interviewsToday: todayInterviews.length,
+          avgAiScore: avgScore,
+          offerRate: Math.round((hiredCount / Math.max(1, allApps.length)) * 100),
+          timeToHire: 14,
+          rejectedCount: rejected
         });
 
+        setPipeline(pipelineMapped);
+        setTrendData(last7Days);
+        setTopPositions(sortedPositions);
+        setRecentCandidates(allApps.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 5));
+        setActiveJobsList(activeJobs.slice(0, 5));
+        setInterviewSchedule(todayInterviews.slice(0, 4));
+
       } catch (err) {
-        console.error('Gagal mengambil data:', err);
+        console.error("Dashboard Sync Error:", err);
       } finally {
         setIsLoading(false);
       }
     };
-    fetchAll();
+    fetchDashboardData();
   }, []);
 
-  const pipelineTotal = pipelineData.reduce((s, d) => s + d.count, 0) || 1;
   const today = new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
+  if (isLoading) {
+    return (
+      <div className="h-[80vh] flex flex-col items-center justify-center gap-4">
+        <Loader2 size={40} className="text-blue-600 animate-spin" />
+        <p className="text-stone-400 font-black uppercase tracking-widest text-[10px]">Menyusun Dashboard Real-Time...</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 ease-out">
+    <div className="flex flex-col h-[calc(100vh-6rem)] overflow-hidden">
       
-      {/* HEADER DASHBOARD */}
-      <div className="flex items-end justify-between">
+      {/* FIXED HEADER */}
+      <div className="shrink-0 bg-[#FFFAF5]/80 backdrop-blur-md px-4 pb-6 pt-2 flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-stone-100/50">
         <div>
-          <h1 className="text-2xl font-black text-stone-900 tracking-tight uppercase">Dashboard HR</h1>
-          <p className="text-stone-400 text-sm mt-0.5 font-medium italic capitalize">{today}</p>
-        </div>
-        <span className="text-[10px] font-bold bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full uppercase tracking-widest">
-          Sistem aktif
-        </span>
-      </div>
-
-      {/* KPI CARDS */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <MetricCard label="Total Kandidat" value={stats.totalKandidat} isLoading={isLoading} icon={<Users size={18} className="text-blue-600" />} iconBg="bg-blue-50" />
-        <MetricCard label="Lowongan Aktif" value={stats.lowonganAktif} isLoading={isLoading} icon={<Briefcase size={18} className="text-emerald-600" />} iconBg="bg-emerald-50" />
-        <MetricCard label="CV Diproses AI" value={stats.cvTerproses} isLoading={isLoading} icon={<FileCheck size={18} className="text-orange-500" />} iconBg="bg-orange-50" />
-        <MetricCard label="Interview Hari Ini" value={stats.interviewHariIni} isLoading={isLoading} icon={<CalendarCheck size={18} className="text-violet-600" />} iconBg="bg-violet-50" />
-      </div>
-
-      {/* PIPELINE REKRUTMEN */}
-      <div className="bg-white rounded-2xl border border-stone-100 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xs font-black text-stone-400 uppercase tracking-widest">Pipeline Rekrutmen</h2>
-          <span className="text-xs text-stone-400 font-medium">{pipelineTotal} kandidat total</span>
-        </div>
-        <div className="flex rounded-xl overflow-hidden h-8 gap-0.5 mb-3">
-          {pipelineData.map((seg) => (
-            <div key={seg.stage} style={{ flex: seg.count, backgroundColor: seg.color }} className="flex items-center justify-center text-[10px] font-bold">
-              <span style={{ color: seg.textColor }}>{seg.count > 0 ? seg.count : ''}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* RECENT DATA SECTION */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-white rounded-2xl border border-stone-100 p-6">
-          <h3 className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-4">Kandidat Terbaru</h3>
-          <div className="space-y-0">
-            {isLoading ? (
-               <div className="py-4 flex justify-center"><Loader2 className="animate-spin text-stone-200" /></div>
-            ) : recentCandidates.length > 0 ? recentCandidates.map((c, i) => (
-              <div key={i} className="flex items-center justify-between py-2 border-b border-stone-50 last:border-0">
-                <span className="text-sm font-bold">{c.nama}</span>
-                <Badge color={c.stageColor}>{c.stage}</Badge>
-              </div>
-            )) : (
-              <p className="text-xs text-stone-400 text-center py-4">Belum ada pelamar baru</p>
-            )}
+          <h1 className="text-4xl font-black text-stone-900 tracking-tight uppercase">Dashboard HR</h1>
+          <div className="flex items-center gap-3 mt-1">
+            <p className="text-stone-500 font-medium text-sm flex items-center gap-2 italic">
+              snapHire — {today}
+            </p>
+            <span className="text-[10px] font-black bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full uppercase border border-emerald-100 shadow-sm">Sistem Aktif</span>
           </div>
         </div>
+        <div className="flex gap-3">
+          <button onClick={() => router.push('/hr/scan-cv')} className="bg-white border border-stone-200 hover:border-blue-600 text-stone-700 px-6 py-3 rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 shadow-sm">
+            <ScanSearch size={18} /> Scan CV AI
+          </button>
+          <button onClick={() => router.push('/hr/jobs')} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 shadow-lg shadow-blue-600/20">
+            <Plus size={18} strokeWidth={3} /> Lowongan Baru
+          </button>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-4 py-8 space-y-12 custom-scrollbar">
         
-        <div className="bg-white rounded-2xl border border-stone-100 p-6">
-          <h3 className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-4">Lowongan Aktif</h3>
-          <div className="space-y-0">
-            {isLoading ? (
-               <div className="py-4 flex justify-center"><Loader2 className="animate-spin text-stone-200" /></div>
-            ) : activeJobs.length > 0 ? activeJobs.map((j, i) => (
-              <div key={i} className="flex items-center justify-between py-2 border-b border-stone-50 last:border-0">
-                <span className="text-sm font-medium">{j.title}</span>
-                <span className="text-xs text-stone-400">{j.count} pelamar</span>
-              </div>
-            )) : (
-              <p className="text-xs text-stone-400 text-center py-4">Tidak ada lowongan aktif</p>
-            )}
+        {/* ROW 1: KPI CARDS */}
+        <div className="space-y-5">
+          <h2 className="text-[11px] font-black text-stone-400 uppercase tracking-[0.3em] ml-1">Ringkasan Hari Ini</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+            <StatCard label="Total Pelamar" value={stats.totalCandidates} sub={`+${Math.floor(stats.totalCandidates * 0.1)} minggu ini`} color="blue" />
+            <StatCard label="Lowongan Aktif" value={stats.activeJobs} sub="Posisi sedang dibuka" color="emerald" />
+            <StatCard label="CV Diproses AI" value={stats.aiProcessed} sub={`${Math.round((stats.aiProcessed/Math.max(1, stats.totalCandidates))*100)}% dari total`} color="orange" />
+            <StatCard label="Jadwal Interview" value={stats.interviewsToday} sub="Kandidat terpilih" color="purple" />
           </div>
         </div>
-      </div>
 
+        {/* ROW 2: PIPELINE REKRUTMEN (FIXED HOVER & 1 LINE LEGEND) */}
+        <div className="bg-white rounded-[2.5rem] p-8 border border-stone-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+          <div className="flex items-center justify-between mb-8">
+            <h3 className="font-black text-stone-900 uppercase text-[12px] tracking-[0.2em] flex items-center gap-3">
+              <TrendingUp size={20} className="text-blue-600" /> Pipeline Rekrutmen Aktif
+            </h3>
+            <p className="text-stone-400 text-[10px] font-black uppercase bg-stone-50 px-4 py-1.5 rounded-full border border-stone-100">Total {stats.totalCandidates} Pelamar</p>
+          </div>
+          
+          <div className="flex w-full h-12 rounded-2xl overflow-hidden gap-0.5 mb-6 border border-stone-50 p-1 bg-stone-50">
+            {pipeline.map((stage, i) => (
+              <div 
+                key={i} 
+                style={{ width: `${(stage.count / Math.max(1, stats.totalCandidates)) * 100}%`, backgroundColor: stage.color }}
+                className="h-full flex items-center justify-center text-white font-black text-xs transition-all hover:brightness-110 group relative cursor-default"
+              >
+                {stage.count > 0 && <span>{stage.count}</span>}
+                {/* TOOLTIP INFO SAAT HOVER */}
+                <div className="absolute bottom-full mb-3 hidden group-hover:block bg-stone-900 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap z-50 shadow-xl">
+                    {stage.name}: {stage.count} Pelamar
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap justify-center items-center gap-x-8 gap-y-2">
+            {pipeline.map((stage, i) => (
+               <div key={i} className="flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: stage.color }}></div>
+                  <span className="text-[9px] font-black text-stone-400 uppercase tracking-widest">{stage.name} ({stage.count})</span>
+               </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ROW 3: CHARTS */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <ChartBox title="Tren Pelamar (7 Hari Terakhir)">
+                <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={trendData}>
+                        <defs>
+                            <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                            </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: '900', fill: '#a8a29e'}} dy={10} />
+                        <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: '900', fill: '#a8a29e'}} />
+                        <Tooltip contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)' }} />
+                        <Area type="monotone" dataKey="count" stroke="#3b82f6" strokeWidth={5} fillOpacity={1} fill="url(#colorCount)" />
+                    </AreaChart>
+                </ResponsiveContainer>
+            </ChartBox>
+
+            <ChartBox title="Posisi Dengan Pelamar Terbanyak">
+                <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={topPositions} layout="vertical" margin={{ left: 20 }}>
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                        <XAxis type="number" hide />
+                        <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: '900', fill: '#57534e'}} width={110} />
+                        <Tooltip cursor={{fill: '#f8fafc'}} />
+                        <Bar dataKey="count" radius={[0, 10, 10, 0]} barSize={28} fill="#3b82f6" />
+                    </BarChart>
+                </ResponsiveContainer>
+            </ChartBox>
+        </div>
+
+        {/* ROW 4: LISTS & METRICS */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+            <div className="space-y-4">
+                <h3 className="text-[11px] font-black text-stone-400 uppercase tracking-widest ml-1 mb-4">Metrik Kualitas</h3>
+                <QualityMini label="Avg Time-to-hire" value={`${stats.timeToHire} Hari`} trend="-2 hari" icon={<Clock />} />
+                <QualityMini label="Avg AI Score" value={`${stats.avgAiScore}%`} trend="+4% QoQ" icon={<Sparkles />} />
+                <QualityMini label="Success Rate" value={`${stats.offerRate}%`} trend="Target 80%" icon={<Target />} />
+                <QualityMini label="Rejected" value={stats.rejectedCount} trend="+3 hari ini" icon={<UserMinus />} />
+            </div>
+
+            <div className="lg:col-span-2 bg-white rounded-[2.5rem] p-8 border border-stone-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+                <h3 className="font-black text-stone-900 uppercase text-[11px] tracking-[0.2em] mb-8">Kandidat Terbaru</h3>
+                <div className="space-y-6">
+                    {recentCandidates.length > 0 ? recentCandidates.map((c, i) => (
+                        <div key={i} className="flex items-center justify-between group cursor-pointer" onClick={() => router.push(`/hr/applicants/${c.application_id}`)}>
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-black text-sm border border-blue-100 transition-transform group-hover:scale-110">
+                                    {c.candidates?.name.charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                    <p className="font-black text-stone-800 text-sm leading-tight group-hover:text-blue-600 transition-colors">{c.candidates?.name}</p>
+                                    <p className="text-[10px] text-stone-400 font-bold uppercase tracking-tight mt-1">{c.jobs?.title}</p>
+                                </div>
+                            </div>
+                            <span className={`text-[9px] font-black px-3 py-1.5 rounded-xl uppercase border ${getStatusBadgeColor(c.status_application)}`}>
+                                {c.status_application}
+                            </span>
+                        </div>
+                    )) : <p className="text-center text-stone-400 font-bold py-10">Belum ada pelamar.</p>}
+                </div>
+            </div>
+
+            <div className="bg-white rounded-[2.5rem] p-8 border border-stone-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+                <h3 className="font-black text-stone-900 uppercase text-[11px] tracking-[0.2em] mb-8 text-center">Status Lowongan</h3>
+                <div className="space-y-7">
+                    {activeJobsList.map((j, i) => (
+                        <div key={i} className="space-y-2.5">
+                            <div className="flex justify-between items-center text-[10px] font-black uppercase">
+                                <span className="text-stone-800 truncate w-2/3">● {j.title}</span>
+                                <span className="text-blue-600">{(j.applications as any)[0]?.count || 0} Pelamar</span>
+                            </div>
+                            <div className="w-full h-2 bg-stone-50 rounded-full overflow-hidden shadow-inner">
+                                <div className="h-full bg-gradient-to-r from-blue-400 to-blue-600 rounded-full" style={{ width: `${Math.min(((j.applications as any)[0]?.count || 0) * 10, 100)}%` }}></div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+
+        <div className="space-y-6">
+            <h3 className="text-[11px] font-black text-stone-400 uppercase tracking-[0.3em] ml-1">Jadwal Interview Mendatang</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 pb-10">
+                {interviewSchedule.length > 0 ? interviewSchedule.map((item, i) => (
+                    <div key={i} className="bg-white p-7 rounded-[2rem] border border-stone-100 shadow-sm flex flex-col justify-between hover:shadow-xl hover:border-blue-200 transition-all group">
+                        <div>
+                            <span className="text-[10px] font-black text-blue-500 uppercase tracking-[0.2em] flex items-center gap-2">
+                                <Clock size={12} /> {new Date(item.created_at).getHours()}.00 WIB
+                            </span>
+                            <p className="font-black text-stone-900 text-lg mt-3 group-hover:text-blue-600 transition-colors">{item.candidates?.name}</p>
+                            <p className="text-[11px] font-bold text-stone-500 uppercase tracking-wider">{item.jobs?.title}</p>
+                        </div>
+                        <div className="mt-8 flex items-center justify-between">
+                            <span className="bg-emerald-50 text-emerald-600 px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest border border-emerald-100 flex items-center gap-1.5">
+                                <CheckCircle2 size={10} /> Confirmed
+                            </span>
+                            <ArrowRight size={16} className="text-stone-300 group-hover:text-blue-600 transition-colors" />
+                        </div>
+                    </div>
+                )) : (
+                    <div className="col-span-full py-16 bg-white rounded-[2rem] border border-stone-100 border-dashed text-center">
+                        <Users size={32} className="mx-auto text-stone-200 mb-3" />
+                        <p className="text-stone-400 font-bold uppercase text-xs">Tidak ada jadwal interview hari ini</p>
+                    </div>
+                )}
+            </div>
+        </div>
+
+      </div>
     </div>
   );
+}
+
+// --- HELPER COMPONENTS ---
+
+function StatCard({ label, value, sub, color }: any) {
+  const colors: any = {
+    blue: 'text-blue-600 bg-blue-50',
+    emerald: 'text-emerald-600 bg-emerald-50',
+    orange: 'text-orange-600 bg-orange-50',
+    purple: 'text-purple-600 bg-purple-50'
+  };
+
+  return (
+    <div className="bg-white p-8 rounded-[2.5rem] border border-stone-100 shadow-sm hover:shadow-md transition-all group">
+      <p className="text-[10px] font-black text-stone-400 uppercase tracking-[0.2em] mb-2">{label}</p>
+      <h2 className="text-5xl font-black text-stone-900 tracking-tighter">{value}</h2>
+      <p className={`text-[10px] font-black mt-5 px-3 py-1 rounded-full inline-block uppercase tracking-tighter ${colors[color]}`}>{sub}</p>
+    </div>
+  );
+}
+
+function QualityMini({ label, value, trend, icon }: any) {
+    return (
+        <div className="bg-white p-6 rounded-3xl border border-stone-100 shadow-sm flex items-center gap-5 hover:border-blue-300 transition-all hover:shadow-md">
+            <div className="w-12 h-12 rounded-2xl bg-stone-50 text-stone-400 flex items-center justify-center shrink-0 shadow-inner">
+                {React.cloneElement(icon, { size: 22 })}
+            </div>
+            <div className="min-w-0">
+                <p className="text-[10px] font-black text-stone-400 uppercase tracking-tighter leading-tight">{label}</p>
+                <p className="font-black text-stone-900 text-base">{value}</p>
+                <p className="text-[9px] font-bold text-blue-600 uppercase italic mt-0.5">{trend}</p>
+            </div>
+        </div>
+    );
+}
+
+function ChartBox({ title, children }: any) {
+    return (
+        <div className="bg-white rounded-[2.5rem] p-10 border border-stone-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] h-[450px] flex flex-col hover:shadow-lg transition-shadow">
+            <h3 className="font-black text-stone-900 uppercase text-[12px] tracking-[0.3em] mb-10 border-l-4 border-blue-600 pl-4">{title}</h3>
+            <div className="flex-1 w-full">{children}</div>
+        </div>
+    );
+}
+
+function getStatusBadgeColor(status: string) {
+    switch (status?.toLowerCase()) {
+      case 'hired': return 'bg-emerald-50 text-emerald-700 border-emerald-100';
+      case 'rejected': return 'bg-rose-50 text-rose-700 border-rose-100';
+      case 'interview': return 'bg-purple-50 text-purple-700 border-purple-100';
+      case 'shortlisted': return 'bg-blue-50 text-blue-700 border-blue-100';
+      case 'technical test': return 'bg-orange-50 text-orange-700 border-orange-100';
+      default: return 'bg-stone-50 text-stone-500 border-stone-100';
+    }
 }
