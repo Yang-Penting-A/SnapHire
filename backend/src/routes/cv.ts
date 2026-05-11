@@ -175,7 +175,7 @@ router.post("/upload", upload.single("file"), async (req, res) => {
         ai_strengths: scoringResult.strengths,
         ai_weaknesses: scoringResult.weaknesses,
         ai_recommendation: scoringResult.recommendation,
-        status_application: 'pending'
+        status_application: 'Review AI'
       }]);
 
     if (appError) {

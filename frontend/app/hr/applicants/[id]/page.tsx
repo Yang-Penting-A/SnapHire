@@ -4,9 +4,9 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/app/lib/supabase';
 import { 
-  ArrowLeft, Mail, Phone, MapPin, Briefcase, Download, 
-  Link, Globe, Star, Sparkles, FileText, CheckCircle2, 
-  XCircle, Loader2, User 
+  ArrowLeft, Mail, Phone, MapPin, Briefcase, 
+  Link as LinkIcon, Globe, Star, FileText, CheckCircle2, 
+  XCircle, Loader2, User, ExternalLink
 } from 'lucide-react'; 
 
 export default function CandidateDetailPage() {
@@ -25,7 +25,7 @@ export default function CandidateDetailPage() {
           .select(`
             application_id, status_application, ai_score,
             ai_summary, ai_strengths, ai_weaknesses, ai_recommendation, created_at,
-            candidates ( name, email, phone_number, linkedin_url, portfolio_url, cv_file_url, location ),
+            candidates ( name, email, phone_number, linkedin_url, portfolio_url, cv_file_url ),
             jobs ( title, department )
           `)
           .eq('application_id', applicationId)
@@ -52,9 +52,21 @@ export default function CandidateDetailPage() {
 
       if (error) throw error;
       setApplication({ ...application, status_application: newStatus });
-      alert("Status berhasil diperbarui!");
     } catch (err: any) {
       alert("Gagal update status: " + err.message);
+    }
+  };
+
+  // FUNGSI WARNA YANG SUDAH DIUPDATE
+  const getStatusBadgeColor = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'hired': return 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 focus:ring-emerald-500/20';
+      case 'shortlisted': return 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 focus:ring-blue-500/20';
+      case 'interview': return 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100 focus:ring-purple-500/20';
+      case 'technical test': return 'bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100 focus:ring-orange-500/20';
+      case 'rejected': return 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100 focus:ring-rose-500/20';
+      case 'review ai':
+      default: return 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100 focus:ring-stone-500/10';
     }
   };
 
@@ -62,196 +74,210 @@ export default function CandidateDetailPage() {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4">
         <Loader2 size={40} className="text-blue-600 animate-spin" />
-        <p className="text-stone-400 font-black uppercase tracking-widest text-xs">Memuat Data Kandidat...</p>
+        <p className="text-stone-400 font-black uppercase tracking-widest text-[10px] animate-pulse">Menyiapkan Data Kandidat...</p>
       </div>
     );
   }
 
   if (!application) {
     return (
-      <div className="text-center py-20">
+      <div className="text-center py-20 bg-white rounded-[2rem] border border-stone-100 shadow-sm max-w-2xl mx-auto mt-10">
+        <User size={48} className="mx-auto text-stone-300 mb-4" />
         <h2 className="text-2xl font-black text-stone-800">Kandidat Tidak Ditemukan</h2>
-        <button onClick={() => router.back()} className="mt-4 text-blue-600 font-bold underline">Kembali</button>
+        <p className="text-stone-500 mt-2 font-medium">Data pelamar mungkin sudah dihapus dari database.</p>
+        <button 
+          onClick={() => router.back()} 
+          className="mt-6 px-6 py-3 bg-stone-100 hover:bg-stone-200 text-stone-700 font-black rounded-xl text-xs uppercase tracking-widest transition-colors"
+        >
+          Kembali ke List
+        </button>
       </div>
     );
   }
 
   const candidate = application.candidates;
+  const currentStatus = application.status_application || 'Review AI';
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 max-w-7xl mx-auto pb-10">
+    <div className="space-y-6 animate-in fade-in duration-500 max-w-7xl mx-auto pb-12 px-4">
       
-      {/* 1. HEADER */}
-      <button 
-        onClick={() => router.back()}
-        className="flex items-center gap-2 text-[11px] font-black text-stone-400 uppercase tracking-widest hover:text-blue-600 transition-colors"
-      >
-        <ArrowLeft size={16} /> Kembali ke List Pelamar
-      </button>
+      <div className="pt-2">
+        <button 
+          onClick={() => router.back()}
+          className="flex items-center gap-2 text-[11px] font-black text-stone-400 uppercase tracking-widest hover:text-blue-600 transition-colors w-fit"
+        >
+          <ArrowLeft size={16} /> Kembali ke List Pelamar
+        </button>
+      </div>
 
-      <div className="bg-white rounded-[2.5rem] p-8 border border-stone-100 shadow-sm flex flex-col md:flex-row justify-between items-start gap-6 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50 rounded-full blur-3xl -mr-20 -mt-20 opacity-50 pointer-events-none"></div>
-        
-        <div className="flex items-center gap-6 relative z-10">
-          <div className="w-24 h-24 rounded-[2rem] bg-gradient-to-br from-blue-600 to-indigo-700 text-white flex items-center justify-center font-black text-4xl shadow-xl shadow-blue-600/30">
+      <div className="bg-white rounded-[2rem] p-6 sm:p-8 border border-stone-200 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div className="flex items-center gap-6">
+          <div className="w-20 h-20 rounded-[1.25rem] bg-stone-50 border border-stone-200 text-stone-500 flex items-center justify-center font-black text-3xl shadow-sm uppercase shrink-0">
             {candidate?.name?.charAt(0) || 'U'}
           </div>
           <div>
-            <h1 className="text-3xl font-black text-stone-900 tracking-tight">{candidate?.name}</h1>
-            <p className="text-blue-600 font-black text-sm uppercase tracking-widest mt-1 mb-3">
-              Melamar: {application.jobs?.title}
-            </p>
-            <div className="flex gap-2">
-              <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border ${
-                application.status_application === 'Shortlisted' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 
-                application.status_application === 'Rejected' ? 'bg-rose-50 text-rose-700 border-rose-200' : 
-                'bg-stone-50 text-stone-700 border-stone-200'
-              }`}>
-                {application.status_application}
-              </span>
+            <h1 className="text-2xl sm:text-3xl font-black text-stone-900 tracking-tight">{candidate?.name}</h1>
+            <div className="flex items-center gap-2 mt-1.5">
+              <Briefcase size={14} className="text-stone-400" />
+              <p className="text-stone-600 font-bold text-sm">
+                Melamar Posisi: <span className="text-blue-600">{application.jobs?.title}</span>
+              </p>
             </div>
           </div>
         </div>
 
-        <div className="flex flex-col gap-3 w-full md:w-auto relative z-10">
+        <div className="flex flex-col w-full md:w-auto gap-2 border-t md:border-t-0 md:border-l border-stone-100 pt-4 md:pt-0 md:pl-8">
           <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Ubah Status Kandidat</label>
           <select 
-            value={application.status_application || 'Review AI'}
+            value={currentStatus}
             onChange={(e) => updateStatus(e.target.value)}
-            className="w-full md:w-48 px-4 py-3 bg-stone-50 border border-stone-200 rounded-xl font-bold text-stone-700 outline-none focus:border-blue-500 capitalize"
+            className={`
+              w-full md:w-56 px-4 py-3 rounded-xl font-black text-[11px] uppercase tracking-widest outline-none cursor-pointer transition-all appearance-none text-center shadow-sm border
+              ${getStatusBadgeColor(currentStatus)}
+            `}
           >
-            <option value="Review AI">Review AI</option>
-            <option value="Shortlisted">Shortlisted</option>
-            <option value="Interview">Interview</option>
-            <option value="Technical Test">Technical Test</option>
-            <option value="Hired">Hired</option>
-            <option value="Rejected">Rejected</option>
+            {['Review AI', 'Shortlisted', 'Interview', 'Technical Test', 'Hired', 'Rejected'].map(s => (
+              <option key={s} value={s} className="bg-white text-stone-700 font-bold">{s}</option>
+            ))}
           </select>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* 2. KOLOM KIRI (Profil & Kontak) */}
-        <div className="space-y-8">
-          <div className="bg-white rounded-[2.5rem] p-8 border border-stone-100 shadow-sm">
-            <h3 className="text-lg font-black text-stone-900 mb-6 flex items-center gap-2"><User size={20} className="text-blue-600"/> Data Pribadi</h3>
+        <div className="space-y-6">
+          <div className="bg-white rounded-[2rem] p-8 border border-stone-200 shadow-sm">
+            <h3 className="text-sm font-black text-stone-800 uppercase tracking-widest mb-6 flex items-center gap-2">
+              <User size={18} className="text-stone-400"/> Data Pribadi
+            </h3>
             
             <div className="space-y-5">
               <div>
-                <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">Email</p>
-                <a href={`mailto:${candidate?.email}`} className="flex items-center gap-2 text-stone-900 font-bold hover:text-blue-600 transition-colors">
-                  <Mail size={16} className="text-stone-400" /> {candidate?.email || '-'}
+                <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5">Email</p>
+                <a href={`mailto:${candidate?.email}`} className="flex items-center gap-2.5 text-stone-700 font-bold hover:text-blue-600 transition-colors text-sm">
+                  <Mail size={16} className="text-stone-300" /> <span className="truncate">{candidate?.email || '-'}</span>
                 </a>
               </div>
+              <div className="h-px w-full bg-stone-100"></div>
               <div>
-                <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">Nomor Telepon</p>
-                <a href={`tel:${candidate?.phone_number}`} className="flex items-center gap-2 text-stone-900 font-bold hover:text-blue-600 transition-colors">
-                  <Phone size={16} className="text-stone-400" /> {candidate?.phone_number || '-'}
+                <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5">Nomor Telepon</p>
+                <a href={`tel:${candidate?.phone_number}`} className="flex items-center gap-2.5 text-stone-700 font-bold hover:text-blue-600 transition-colors text-sm">
+                  <Phone size={16} className="text-stone-300" /> {candidate?.phone_number || '-'}
                 </a>
               </div>
+              <div className="h-px w-full bg-stone-100"></div>
               <div>
-                <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">Lokasi</p>
-                <p className="flex items-center gap-2 text-stone-900 font-bold">
-                  <MapPin size={16} className="text-stone-400" /> {candidate?.location || 'Tidak disebutkan'}
+                <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5">Lokasi</p>
+                <p className="flex items-center gap-2.5 text-stone-700 font-bold text-sm">
+                  <MapPin size={16} className="text-stone-300" /> Tidak disebutkan
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-[2.5rem] p-8 border border-stone-100 shadow-sm space-y-4">
-            <h3 className="text-lg font-black text-stone-900 mb-4 flex items-center gap-2"><Briefcase size={20} className="text-blue-600"/> Dokumen & Link</h3>
+          <div className="bg-white rounded-[2rem] p-8 border border-stone-200 shadow-sm space-y-4">
+            <h3 className="text-sm font-black text-stone-800 uppercase tracking-widest mb-6 flex items-center gap-2">
+              <FileText size={18} className="text-stone-400"/> Dokumen & Tautan
+            </h3>
             
             {candidate?.cv_file_url ? (
-              <a href={candidate.cv_file_url} target="_blank" rel="noreferrer" className="w-full py-4 bg-stone-900 hover:bg-stone-800 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-colors">
-                <Download size={16} /> Lihat CV Asli
+              <a 
+                href={candidate.cv_file_url} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="w-full py-4 bg-blue-50 border border-blue-200 hover:bg-blue-100 hover:border-blue-300 text-blue-700 rounded-xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-sm active:scale-95"
+              >
+                <ExternalLink size={16} strokeWidth={2.5} /> Buka File CV
               </a>
             ) : (
-              <button disabled className="w-full py-4 bg-stone-100 text-stone-400 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 cursor-not-allowed">
+              <button disabled className="w-full py-4 bg-stone-50 border border-stone-100 text-stone-400 rounded-xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 cursor-not-allowed">
                 <FileText size={16} /> CV Tidak Tersedia
               </button>
             )}
 
             {candidate?.linkedin_url && (
-              <a href={candidate.linkedin_url} target="_blank" rel="noreferrer" className="w-full py-4 bg-[#0A66C2]/10 hover:bg-[#0A66C2]/20 text-[#0A66C2] rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-colors">
-                <Link size={16} /> Profil LinkedIn
+              <a href={candidate.linkedin_url} target="_blank" rel="noopener noreferrer" className="w-full py-4 bg-[#0A66C2]/5 border border-[#0A66C2]/20 hover:bg-[#0A66C2]/10 text-[#0A66C2] rounded-xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 transition-colors">
+                <LinkIcon size={16} /> Profil LinkedIn
               </a>
             )}
             
             {candidate?.portfolio_url && (
-              <a href={candidate.portfolio_url} target="_blank" rel="noreferrer" className="w-full py-4 bg-stone-50 border border-stone-200 hover:border-stone-300 text-stone-700 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-colors">
-                <Globe size={16} /> Website/Portofolio
+              <a href={candidate.portfolio_url} target="_blank" rel="noopener noreferrer" className="w-full py-4 bg-stone-50 border border-stone-200 hover:bg-stone-100 text-stone-700 rounded-xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 transition-colors">
+                <Globe size={16} /> Website / Portofolio
               </a>
             )}
           </div>
         </div>
 
-        {/* 3. KOLOM KANAN (Hasil Analisis AI) */}
-        <div className="lg:col-span-2 space-y-8">
-          <div className="bg-white rounded-[2.5rem] p-8 border border-stone-100 shadow-sm">
+        <div className="lg:col-span-2 space-y-6">
+          <div className="bg-white rounded-[2rem] p-8 border border-stone-200 shadow-sm h-full">
             
             {!application.ai_score ? (
-              <div className="text-center py-20 bg-stone-50 rounded-3xl border border-dashed border-stone-200">
-                <Sparkles size={48} className="mx-auto text-stone-300 mb-4" />
-                <p className="font-black text-stone-800 text-lg">Belum Ada Evaluasi AI</p>
-                <p className="text-stone-500 font-medium text-sm mt-2">Kandidat ini belum diproses oleh sistem AI SnapHire.</p>
+              <div className="h-full flex flex-col items-center justify-center py-20 bg-stone-50 rounded-3xl border border-dashed border-stone-200">
+                <div className="bg-white p-4 rounded-full shadow-sm border border-stone-100 mb-4">
+                  <Star size={32} className="text-stone-300" />
+                </div>
+                <p className="font-black text-stone-700 text-lg">Belum Ada Evaluasi AI</p>
+                <p className="text-stone-500 font-medium text-sm mt-2 text-center max-w-xs">Kandidat ini belum dianalisis oleh sistem AI SnapHire.</p>
               </div>
             ) : (
               <div className="space-y-8">
-                {/* Score Banner */}
-                <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl p-8 text-white relative overflow-hidden shadow-xl shadow-blue-900/20">
-                  <Sparkles className="absolute top-4 right-4 text-white/20" size={120} />
-                  <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-blue-200 mb-2">AI Match Score</p>
-                      <h3 className="text-6xl font-black tracking-tighter flex items-center gap-2">
-                        {application.ai_score}% <Star size={32} className="fill-blue-200 text-blue-200" />
-                      </h3>
+                
+                <div className="bg-stone-50 rounded-3xl p-6 md:p-8 border border-stone-200 flex flex-col md:flex-row items-center gap-8">
+                  <div className="flex flex-col items-center justify-center min-w-[140px] h-[140px] bg-white rounded-[1.5rem] border border-stone-100 shadow-sm">
+                    <span className="text-5xl font-black text-blue-600 tracking-tighter">{application.ai_score}%</span>
+                    <div className="flex items-center gap-1 mt-1 text-stone-400">
+                      <Star size={10} className="fill-blue-500" />
+                      <span className="text-[10px] font-black uppercase tracking-widest">Match</span>
                     </div>
-                    <div className="text-left md:text-right w-full md:max-w-[250px] bg-black/20 p-4 rounded-2xl backdrop-blur-sm">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-blue-200 mb-1">Rekomendasi AI</p>
-                      <p className="text-sm font-bold text-blue-50 leading-relaxed">
-                        {application.ai_recommendation || 'AI menyarankan untuk mereview lebih lanjut kandidat ini.'}
-                      </p>
-                    </div>
+                  </div>
+                  <div className="flex-1 text-center md:text-left">
+                    <h4 className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-2 flex items-center justify-center md:justify-start gap-1.5">
+                      <Star size={14} className="text-blue-500" /> Rekomendasi Sistem
+                    </h4>
+                    <p className="text-sm font-bold text-stone-700 leading-relaxed">
+                      {application.ai_recommendation || 'Evaluasi manual disarankan untuk memastikan kecocokan budaya kerja.'}
+                    </p>
                   </div>
                 </div>
 
-                {/* AI Summary */}
                 <div>
-                  <h4 className="text-xs font-black text-stone-400 uppercase tracking-widest mb-3 flex items-center gap-2"><FileText size={16}/> Ringkasan Eksekutif</h4>
-                  <p className="text-stone-700 text-sm leading-relaxed font-medium p-6 bg-blue-50/50 rounded-3xl border border-blue-100">
-                    {application.ai_summary || 'Tidak ada ringkasan tersedia.'}
+                  <h4 className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                    <FileText size={16} className="text-stone-300"/> Ringkasan Eksekutif
+                  </h4>
+                  <p className="text-stone-600 text-sm leading-relaxed font-medium p-6 bg-white border border-stone-200 rounded-2xl shadow-sm">
+                    {application.ai_summary || 'Tidak ada ringkasan tersedia dari CV ini.'}
                   </p>
                 </div>
 
-                {/* Strengths & Weaknesses */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="bg-emerald-50/50 rounded-3xl p-6 border border-emerald-100">
-                    <h4 className="text-xs font-black text-emerald-700 uppercase tracking-widest mb-4 flex items-center gap-2">
+                  
+                  <div className="bg-white rounded-2xl p-6 border border-stone-200 shadow-sm">
+                    <h4 className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-4 flex items-center gap-2">
                       <CheckCircle2 size={16} /> Kelebihan (Strengths)
                     </h4>
                     <ul className="space-y-3">
                       {application.ai_strengths?.map((strength: string, i: number) => (
-                        <li key={i} className="flex items-start gap-2 text-sm font-bold text-stone-700">
+                        <li key={i} className="flex items-start gap-2.5 text-sm font-medium text-stone-600 leading-relaxed">
                           <span className="text-emerald-500 mt-0.5">•</span> {strength}
                         </li>
-                      )) || <li className="text-sm font-medium text-stone-400 italic">Tidak ada data.</li>}
+                      )) || <li className="text-sm font-medium text-stone-400 italic">Tidak ada data terdeteksi.</li>}
                     </ul>
                   </div>
 
-                  <div className="bg-rose-50/50 rounded-3xl p-6 border border-rose-100">
-                    <h4 className="text-xs font-black text-rose-700 uppercase tracking-widest mb-4 flex items-center gap-2">
+                  <div className="bg-white rounded-2xl p-6 border border-stone-200 shadow-sm">
+                    <h4 className="text-[10px] font-black text-rose-600 uppercase tracking-widest mb-4 flex items-center gap-2">
                       <XCircle size={16} /> Kekurangan (Gaps)
                     </h4>
                     <ul className="space-y-3">
                       {application.ai_weaknesses?.map((weakness: string, i: number) => (
-                        <li key={i} className="flex items-start gap-2 text-sm font-bold text-stone-700">
+                        <li key={i} className="flex items-start gap-2.5 text-sm font-medium text-stone-600 leading-relaxed">
                           <span className="text-rose-500 mt-0.5">•</span> {weakness}
                         </li>
-                      )) || <li className="text-sm font-medium text-stone-400 italic">Tidak ada data.</li>}
+                      )) || <li className="text-sm font-medium text-stone-400 italic">Tidak ada data terdeteksi.</li>}
                     </ul>
                   </div>
+
                 </div>
               </div>
             )}
