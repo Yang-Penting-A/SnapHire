@@ -110,7 +110,9 @@ export default function KelolaLowongan() {
         <div className="flex justify-between items-center pt-2">
           <div>
             <h1 className="text-3xl font-black text-stone-900 uppercase tracking-tight">Kelola Lowongan</h1>
-            <p className="text-stone-500 font-medium mt-1 text-sm">Atur strategi rekrutmen dan optimasi pencarian bakat.</p>
+            <p className="text-stone-500 font-medium">Atur strategi rekrutmen dan optimasi pencarian bakat.
+
+</p>
           </div>
           <button onClick={() => openModal()} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl font-black uppercase text-xs tracking-widest flex items-center gap-2 shadow-lg shadow-blue-600/20 active:scale-95 transition-all">
             <Plus size={18} strokeWidth={3} /> TAMBAH LOWONGAN

@@ -108,7 +108,7 @@ export default function ScanCVPage() {
       
       {/* HEADER (Konsisten dengan Kelola Lowongan & List Pelamar) */}
       <div className="flex flex-col gap-1.5 pt-2">
-        <h1 className="text-3xl font-black text-stone-900 tracking-tight uppercase">Scan CV AI</h1>
+        <h1 className="text-3xl font-black text-stone-900 tracking-tight uppercase">Scan CV</h1>
         <p className="text-stone-500 font-medium">Unggah CV kandidat dan biarkan AI menganalisis kecocokan secara otomatis.</p>
       </div>
 

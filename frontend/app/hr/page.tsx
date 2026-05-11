@@ -42,9 +42,10 @@ export default function HRDashboard() {
       try {
         const todayStr = new Date().toISOString().split('T')[0];
 
+        // 1. FETCH DATA (Ambil semua jobs tanpa filter status 'active' saja untuk analisis)
         const [kandidatRes, jobsRes, appsRes] = await Promise.all([
           supabase.from('candidates').select('*', { count: 'exact', head: true }),
-          supabase.from('jobs').select('job_id, title, status_job, created_at, applications(count)').eq('status_job', 'active'),
+          supabase.from('jobs').select('job_id, title, status_job, due_date, created_at, applications(count)'),
           supabase.from('applications').select(`
             application_id, status_application, ai_score, created_at, 
             candidates(name), jobs(title)
@@ -52,14 +53,19 @@ export default function HRDashboard() {
         ]);
 
         const allApps = appsRes.data || [];
-        const activeJobs = jobsRes.data || [];
+        const allJobs = jobsRes.data || [];
 
+        // 2. CALCULATE KPI STATS
+        // Filter untuk angka kartu (yang benar-benar aktif)
+        const trulyActiveJobsCount = allJobs.filter(j => j.status_job === 'active' && (!j.due_date || j.due_date >= todayStr)).length;
+        
         const scores = allApps.map(a => a.ai_score).filter(s => s !== null) as number[];
         const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
         const rejected = allApps.filter(a => a.status_application?.toLowerCase() === 'rejected').length;
         const hiredCount = allApps.filter(a => a.status_application?.toLowerCase() === 'hired').length;
         const todayInterviews = allApps.filter(a => a.status_application?.toLowerCase() === 'interview');
 
+        // 3. RECRUITMENT PIPELINE
         const stages = [
           { label: 'Review', key: 'Review AI', color: '#bcbec1' },
           { label: 'Screening', key: 'Shortlisted', color: '#60A5FA' },
@@ -75,9 +81,9 @@ export default function HRDashboard() {
           color: s.color
         }));
 
+        // 4. TREND PELAMAR (Last 7 Days)
         const last7Days = [...Array(7)].map((_, i) => {
-          const d = new Date();
-          d.setDate(d.getDate() - i);
+          const d = new Date(); d.setDate(d.getDate() - i);
           const dateStr = d.toISOString().split('T')[0];
           return {
             date: d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
@@ -85,14 +91,14 @@ export default function HRDashboard() {
           };
         }).reverse();
 
-        const sortedPositions = activeJobs
+        // ANALISIS: Gunakan allJobs (Active + Expired)
+        const sortedPositions = [...allJobs]
           .map(j => ({ name: j.title, count: (j.applications as any)[0]?.count || 0 }))
-          .sort((a, b) => b.count - a.count)
-          .slice(0, 5);
+          .sort((a, b) => b.count - a.count).slice(0, 5);
 
         setStats({
           totalCandidates: kandidatRes.count || 0,
-          activeJobs: activeJobs.length,
+          activeJobs: trulyActiveJobsCount,
           aiProcessed: scores.length,
           interviewsToday: todayInterviews.length,
           avgAiScore: avgScore,
@@ -105,14 +111,10 @@ export default function HRDashboard() {
         setTrendData(last7Days);
         setTopPositions(sortedPositions);
         setRecentCandidates(allApps.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 5));
-        setActiveJobsList(activeJobs.slice(0, 5));
+        setActiveJobsList(allJobs.slice(0, 5));
         setInterviewSchedule(todayInterviews.slice(0, 4));
 
-      } catch (err) {
-        console.error("Dashboard Sync Error:", err);
-      } finally {
-        setIsLoading(false);
-      }
+      } catch (err) { console.error("Dashboard Sync Error:", err); } finally { setIsLoading(false); }
     };
     fetchDashboardData();
   }, []);
@@ -134,9 +136,9 @@ export default function HRDashboard() {
       {/* FIXED HEADER */}
       <div className="shrink-0 bg-[#FFFAF5]/80 backdrop-blur-md px-4 pb-6 pt-2 flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-stone-100/50">
         <div>
-          <h1 className="text-4xl font-black text-stone-900 tracking-tight uppercase">Dashboard HR</h1>
+          <h1 className="text-3xl font-black text-stone-900 tracking-tight uppercase">Dashboard HR</h1>
           <div className="flex items-center gap-3 mt-1">
-            <p className="text-stone-500 font-medium text-sm flex items-center gap-2 italic">
+            <p className="text-stone-500 font-medium text-md flex items-center gap-2">
               snapHire — {today}
             </p>
             <span className="text-[10px] font-black bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full uppercase border border-emerald-100 shadow-sm">Sistem Aktif</span>
@@ -146,7 +148,7 @@ export default function HRDashboard() {
           <button onClick={() => router.push('/hr/scan-cv')} className="bg-white border border-stone-200 hover:border-blue-600 text-stone-700 px-6 py-3 rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 shadow-sm">
             <ScanSearch size={18} /> Scan CV AI
           </button>
-          <button onClick={() => router.push('/hr/jobs')} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 shadow-lg shadow-blue-600/20">
+          <button onClick={() => router.push('/hr/jobs')} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 shadow-lg shadow-blue-600/20">
             <Plus size={18} strokeWidth={3} /> Lowongan Baru
           </button>
         </div>
@@ -165,25 +167,29 @@ export default function HRDashboard() {
           </div>
         </div>
 
-        {/* ROW 2: PIPELINE REKRUTMEN (FIXED HOVER & 1 LINE LEGEND) */}
+        {/* ROW 2: PIPELINE REKRUTMEN (FIXED HOVER & CLIPPING) */}
         <div className="bg-white rounded-[2.5rem] p-8 border border-stone-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-10">
             <h3 className="font-black text-stone-900 uppercase text-[12px] tracking-[0.2em] flex items-center gap-3">
               <TrendingUp size={20} className="text-blue-600" /> Pipeline Rekrutmen Aktif
             </h3>
-            <p className="text-stone-400 text-[10px] font-black uppercase bg-stone-50 px-4 py-1.5 rounded-full border border-stone-100">Total {stats.totalCandidates} Pelamar</p>
+            <p className="text-stone-700 text-[10px] font-black uppercase bg-stone-100 px-4 py-1.5 rounded-full border border-stone-100">Total {stats.totalCandidates} Pelamar</p>
           </div>
           
-          <div className="flex w-full h-12 rounded-2xl overflow-hidden gap-0.5 mb-6 border border-stone-50 p-1 bg-stone-50">
+          {/* overflow-hidden dihapus agar tooltip terlihat */}
+          <div className="flex w-full h-12 rounded-2xl gap-0.5 mb-6 border border-stone-50 p-1 bg-stone-50 relative">
             {pipeline.map((stage, i) => (
               <div 
                 key={i} 
                 style={{ width: `${(stage.count / Math.max(1, stats.totalCandidates)) * 100}%`, backgroundColor: stage.color }}
-                className="h-full flex items-center justify-center text-white font-black text-xs transition-all hover:brightness-110 group relative cursor-default"
+                className={`h-full flex items-center justify-center text-white font-black text-xs transition-all hover:brightness-110 group relative cursor-pointer
+                  ${i === 0 ? 'rounded-l-xl' : ''} 
+                  ${i === pipeline.length - 1 ? 'rounded-r-xl' : ''}
+                `}
               >
                 {stage.count > 0 && <span>{stage.count}</span>}
-                {/* TOOLTIP INFO SAAT HOVER */}
-                <div className="absolute bottom-full mb-3 hidden group-hover:block bg-stone-900 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap z-50 shadow-xl">
+                {/* TOOLTIP FIX */}
+                <div className="absolute bottom-full mb-3 hidden group-hover:block bg-stone-900 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap z-[100] shadow-xl">
                     {stage.name}: {stage.count} Pelamar
                 </div>
               </div>
@@ -200,7 +206,7 @@ export default function HRDashboard() {
           </div>
         </div>
 
-        {/* ROW 3: CHARTS */}
+        {/* ROW 3: CHARTS (FIXED FONTWEIGHT) */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <ChartBox title="Tren Pelamar (7 Hari Terakhir)">
                 <ResponsiveContainer width="100%" height="100%">
@@ -233,7 +239,6 @@ export default function HRDashboard() {
             </ChartBox>
         </div>
 
-        {/* ROW 4: LISTS & METRICS */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
             <div className="space-y-4">
                 <h3 className="text-[11px] font-black text-stone-400 uppercase tracking-widest ml-1 mb-4">Metrik Kualitas</h3>
@@ -268,17 +273,17 @@ export default function HRDashboard() {
             <div className="bg-white rounded-[2.5rem] p-8 border border-stone-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
                 <h3 className="font-black text-stone-900 uppercase text-[11px] tracking-[0.2em] mb-8 text-center">Status Lowongan</h3>
                 <div className="space-y-7">
-                    {activeJobsList.map((j, i) => (
-                        <div key={i} className="space-y-2.5">
-                            <div className="flex justify-between items-center text-[10px] font-black uppercase">
-                                <span className="text-stone-800 truncate w-2/3">● {j.title}</span>
-                                <span className="text-blue-600">{(j.applications as any)[0]?.count || 0} Pelamar</span>
-                            </div>
-                            <div className="w-full h-2 bg-stone-50 rounded-full overflow-hidden shadow-inner">
-                                <div className="h-full bg-gradient-to-r from-blue-400 to-blue-600 rounded-full" style={{ width: `${Math.min(((j.applications as any)[0]?.count || 0) * 10, 100)}%` }}></div>
-                            </div>
-                        </div>
-                    ))}
+                  {activeJobsList.map((j, i) => (
+                    <div key={i} className="space-y-2.5">
+                      <div className="flex justify-between items-center text-[10px] font-black uppercase">
+                        <span className="text-stone-800 truncate w-2/3">● {j.title}</span>
+                        <span className="text-blue-600">{(j.applications as any)[0]?.count || 0} Pelamar</span>
+                      </div>
+                      <div className="w-full h-2 bg-stone-50 rounded-full overflow-hidden shadow-inner">
+                        <div className="h-full bg-gradient-to-r from-blue-400 to-blue-600 rounded-full" style={{ width: `${Math.min(((j.applications as any)[0]?.count || 0) * 10, 100)}%` }}></div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
             </div>
         </div>
@@ -317,15 +322,8 @@ export default function HRDashboard() {
 }
 
 // --- HELPER COMPONENTS ---
-
 function StatCard({ label, value, sub, color }: any) {
-  const colors: any = {
-    blue: 'text-blue-600 bg-blue-50',
-    emerald: 'text-emerald-600 bg-emerald-50',
-    orange: 'text-orange-600 bg-orange-50',
-    purple: 'text-purple-600 bg-purple-50'
-  };
-
+  const colors: any = { blue: 'text-blue-600 bg-blue-50', emerald: 'text-emerald-600 bg-emerald-50', orange: 'text-orange-600 bg-orange-50', purple: 'text-purple-600 bg-purple-50' };
   return (
     <div className="bg-white p-8 rounded-[2.5rem] border border-stone-100 shadow-sm hover:shadow-md transition-all group">
       <p className="text-[10px] font-black text-stone-400 uppercase tracking-[0.2em] mb-2">{label}</p>
@@ -336,36 +334,36 @@ function StatCard({ label, value, sub, color }: any) {
 }
 
 function QualityMini({ label, value, trend, icon }: any) {
-    return (
-        <div className="bg-white p-6 rounded-3xl border border-stone-100 shadow-sm flex items-center gap-5 hover:border-blue-300 transition-all hover:shadow-md">
-            <div className="w-12 h-12 rounded-2xl bg-stone-50 text-stone-400 flex items-center justify-center shrink-0 shadow-inner">
-                {React.cloneElement(icon, { size: 22 })}
-            </div>
-            <div className="min-w-0">
-                <p className="text-[10px] font-black text-stone-400 uppercase tracking-tighter leading-tight">{label}</p>
-                <p className="font-black text-stone-900 text-base">{value}</p>
-                <p className="text-[9px] font-bold text-blue-600 uppercase italic mt-0.5">{trend}</p>
-            </div>
-        </div>
-    );
+  return (
+    <div className="bg-white p-6 rounded-3xl border border-stone-100 shadow-sm flex items-center gap-5 hover:border-blue-300 transition-all hover:shadow-md">
+      <div className="w-12 h-12 rounded-2xl bg-stone-50 text-stone-400 flex items-center justify-center shrink-0 shadow-inner">
+        {React.cloneElement(icon, { size: 22 })}
+      </div>
+      <div className="min-w-0">
+        <p className="text-[10px] font-black text-stone-400 uppercase tracking-tighter leading-tight">{label}</p>
+        <p className="font-black text-stone-900 text-base">{value}</p>
+        <p className="text-[9px] font-bold text-blue-600 uppercase italic mt-0.5">{trend}</p>
+      </div>
+    </div>
+  );
 }
 
 function ChartBox({ title, children }: any) {
-    return (
-        <div className="bg-white rounded-[2.5rem] p-10 border border-stone-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] h-[450px] flex flex-col hover:shadow-lg transition-shadow">
-            <h3 className="font-black text-stone-900 uppercase text-[12px] tracking-[0.3em] mb-10 border-l-4 border-blue-600 pl-4">{title}</h3>
-            <div className="flex-1 w-full">{children}</div>
-        </div>
-    );
+  return (
+    <div className="bg-white rounded-[2.5rem] p-10 border border-stone-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] h-[450px] flex flex-col hover:shadow-lg transition-shadow">
+      <h3 className="font-black text-stone-900 uppercase text-[12px] tracking-[0.3em] mb-10 border-l-4 border-blue-600 pl-4">{title}</h3>
+      <div className="flex-1 w-full">{children}</div>
+    </div>
+  );
 }
 
 function getStatusBadgeColor(status: string) {
-    switch (status?.toLowerCase()) {
-      case 'hired': return 'bg-emerald-50 text-emerald-700 border-emerald-100';
-      case 'rejected': return 'bg-rose-50 text-rose-700 border-rose-100';
-      case 'interview': return 'bg-purple-50 text-purple-700 border-purple-100';
-      case 'shortlisted': return 'bg-blue-50 text-blue-700 border-blue-100';
-      case 'technical test': return 'bg-orange-50 text-orange-700 border-orange-100';
-      default: return 'bg-stone-50 text-stone-500 border-stone-100';
-    }
+  switch (status?.toLowerCase()) {
+    case 'hired': return 'bg-emerald-50 text-emerald-700 border-emerald-100';
+    case 'rejected': return 'bg-rose-50 text-rose-700 border-rose-100';
+    case 'interview': return 'bg-purple-50 text-purple-700 border-purple-100';
+    case 'shortlisted': return 'bg-blue-50 text-blue-700 border-blue-100';
+    case 'technical test': return 'bg-orange-50 text-orange-700 border-orange-100';
+    default: return 'bg-stone-50 text-stone-500 border-stone-100';
+  }
 }
