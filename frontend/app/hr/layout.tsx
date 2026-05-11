@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '@/app/lib/supabase';
 import sessionManager from '@/app/lib/sessionManager';
-import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, Loader2 } from 'lucide-react';
+import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, Loader2, ScanSearch } from 'lucide-react';
 
 export default function HRLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -180,6 +180,9 @@ export default function HRLayout({ children }: { children: React.ReactNode }) {
           </Link>
           <Link href="/hr/applicants" onClick={closeMenu} className={getMenuClass('/hr/applicants')}>
             <Users size={20} /> List Pelamar
+          </Link>
+          <Link href="/hr/scan-cv" onClick={closeMenu} className={getMenuClass('/hr/scan-cv')}>
+            <ScanSearch size={20} /> Scan CV
           </Link>
           <Link href="/hr/settings" onClick={closeMenu} className={getMenuClass('/hr/settings')}>
             <Settings size={20} /> Pengaturan

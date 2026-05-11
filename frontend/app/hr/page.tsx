@@ -209,7 +209,7 @@ export default function HRDashboardPage() {
           cvTerproses: countCV,
           interviewHariIni: countInterview, 
           offerAcceptanceRate: 85, 
-          avgAiScore: 74, 
+          avgAiScore: 70, 
           avgTimeToHire: 18, 
           ditolakMingguIni: 8,
         });
