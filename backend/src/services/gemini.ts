@@ -5,7 +5,8 @@ dotenv.config();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY as string);
 
-// Retry helper dengan exponential backoff
+// --- HELPER: Retry dengan Exponential Backoff ---
+// Berguna agar sistem tidak langsung crash jika API Gemini sedang limit/sibuk
 async function retryWithBackoff<T>(
   fn: () => Promise<T>,
   maxRetries: number = 3,
@@ -16,12 +17,12 @@ async function retryWithBackoff<T>(
       console.log(`[Gemini] Attempt ${attempt}/${maxRetries}...`);
       return await fn();
     } catch (error: any) {
-      const is503 = error.status === 503;
+      const is503 = error.status === 503 || error.status === 429;
       const isLastAttempt = attempt === maxRetries;
       
       if (is503 && !isLastAttempt) {
         const delayMs = baseDelayMs * Math.pow(2, attempt - 1);
-        console.log(`[Gemini] 503 Error - retrying in ${delayMs}ms...`);
+        console.log(`[Gemini] Server Sibuk (503/429) - retrying in ${delayMs}ms...`);
         await new Promise(resolve => setTimeout(resolve, delayMs));
       } else {
         throw error;
@@ -31,12 +32,13 @@ async function retryWithBackoff<T>(
   throw new Error("Retry failed");
 }
 
+// --- FUNGSI 1: EKSTRAKSI DATA CV ---
 export const extractResumeData = async (textContent: string) => {
   const model = genAI.getGenerativeModel({ 
-    model: "gemini-2.5-flash-lite",
+    model: "gemini-2.5-flash-lite", // Pakai versi lite biar lebih cepat dan hemat cost
     generationConfig: { 
       responseMimeType: "application/json",
-      temperature: 0.1
+      temperature: 0.1 // Tetap rendah agar ekstraksi data faktual (tidak mengarang)
     }
   });
 
@@ -67,29 +69,31 @@ export const extractResumeData = async (textContent: string) => {
   return JSON.parse(result.response.text());
 };
 
+// --- FUNGSI 2: ANALISIS & PENILAIAN MATCH SCORE ---
 export const calculateMatchScore = async (resumeJSON: any, jobRequirements: string) => {
   const model = genAI.getGenerativeModel({ 
     model: "gemini-2.5-flash", 
     generationConfig: { 
       responseMimeType: "application/json",
-      temperature: 0.3 
+      temperature: 0.1 // SUDAH DIPERKETAT: AI menjadi kaku, rasional, dan tidak bias
     } 
   });
 
   const prompt = `
-    Kamu adalah Recruitment Assistant yang cerdas, objektif, dan suportif. 
-    Tugasmu adalah memberikan skor kecocokan kandidat untuk tahap awal screening CV.
+    Kamu adalah Senior Technical Recruiter yang sangat tajam, kritis, dan objektif. 
+    Tugasmu adalah melakukan screening CV secara ketat dan memberikan skor kecocokan yang realistis tanpa bias (jangan bermurah hati).
 
-    LOGIKA PENILAIAN:
-    1. Fokus pada Kemampuan Inti: Berikan apresiasi skor yang baik jika skill utama (mandatory) terpenuhi.
-    2. Toleransi Tahap Awal: Jangan langsung memberikan skor rendah jika kriteria opsional tidak ada.
-    3. Analisis Pengalaman: Berikan poin tambahan jika deskripsi pengalaman kerja menunjukkan relevansi dengan posisi.
+    LOGIKA PENILAIAN SUPER KETAT:
+    1. Validasi Hard-Skills: Jika requirement wajib (mandatory) tidak ditemukan eksplisit di CV, POTONG SKOR SECARA SIGNIFIKAN. Jangan berasumsi kandidat bisa jika tidak tertulis.
+    2. Kedalaman Pengalaman: Jangan tertipu oleh keyword. Cek durasi dan deskripsi kerja. Apakah kandidat benar-benar mempraktikkan skill tersebut, atau hanya sekadar menempelkan nama tools di list skill?
+    3. Zero Tolerance untuk Mismatch: Jika level posisi tidak sesuai (misal: butuh Senior tapi pengalaman Junior), skor maksimal adalah 60.
+    4. Objektivitas Mutlak: Skor 80+ hanya berhak diberikan kepada kandidat yang 100% "ready-to-work" sesuai requirement, bukan sekadar "berpotensi".
     
-    PANDUAN SKOR:
-    - 90-100: Sangat cocok, memenuhi hampir semua kriteria utama.
-    - 70-89: Potensial, memiliki pondasi kuat meski ada beberapa skill pendukung yang absen.
-    - 50-69: Cukup, ada potensi namun perlu pelatihan atau review lebih mendalam.
-    - < 50: Kurang sesuai, bidang keahlian tidak relevan dengan posisi.
+    PANDUAN SKOR REALISTIS:
+    - 90-100: Exceptional (Sangat Langka). Memenuhi seluruh requirement wajib dan opsional dengan rekam jejak yang sangat kuat.
+    - 75-89: Solid Fit. Memenuhi requirement utama dengan pengalaman yang relevan.
+    - 50-74: Marginal Fit. Kehilangan beberapa skill teknis wajib atau pengalaman dirasa kurang dalam.
+    - < 50: Poor Fit. Mismatch fundamental pada tech stack, role, atau pengalaman.
 
     DATA KANDIDAT:
     ${JSON.stringify(resumeJSON)}
@@ -100,10 +104,10 @@ export const calculateMatchScore = async (resumeJSON: any, jobRequirements: stri
     HASIL DALAM FORMAT JSON:
     {
       "score": number,
-      "summary": "Analisis objektif maksimal 2 kalimat",
-      "strengths": ["list kelebihan utama"],
-      "weaknesses": ["list kekurangan atau skill yang perlu ditingkatkan"],
-      "recommendation": "Layak dipertimbangkan / Review lebih lanjut / Kurang sesuai"
+      "summary": "Analisis tajam dan kritis maksimal 2 kalimat yang menjustifikasi alasan utama pemberian/pemotongan skor.",
+      "strengths": ["list keahlian kandidat yang benar-benar relevan dengan job requirement"],
+      "weaknesses": ["list fatal gap, skill wajib yang absen, atau pengalaman yang dirasa kurang tajam"],
+      "recommendation": "Lanjut Interview / Pertimbangkan / Tolak"
     }
   `;
 

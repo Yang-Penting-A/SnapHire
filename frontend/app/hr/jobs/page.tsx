@@ -83,19 +83,32 @@ export default function KelolaLowongan() {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       const payload = { 
         ...formData, 
         status_job: targetStatus.toLowerCase(),
         salary_min: formData.salary_min ? parseInt(formData.salary_min) : null,
         salary_max: formData.salary_max ? parseInt(formData.salary_max) : null,
-        required_skills: formData.required_skills ? formData.required_skills.split(',').map(s => s.trim()) : []
+        due_date: formData.due_date ? formData.due_date : null,
+        required_skills: formData.required_skills ? formData.required_skills.split(',').map(s => s.trim()).filter(s => s !== '') : []
       };
-      if (editingId) await supabase.from('jobs').update(payload).eq('job_id', editingId);
-      else await supabase.from('jobs').insert([{ ...payload, created_by: user?.id }]);
+
+      if (editingId) {
+        const { error } = await supabase.from('jobs').update(payload).eq('job_id', editingId);
+        if (error) throw error;
+      } else {
+        // Fix: Hapus created_by dari insert frontend untuk mencegah error Foreign Key
+        const { error } = await supabase.from('jobs').insert([payload]);
+        if (error) throw error;
+      }
+
       setIsModalOpen(false);
       fetchJobs();
-    } catch (err) { console.error(err); } finally { setIsSubmitting(false); }
+    } catch (err: any) { 
+      console.error("Gagal simpan data:", err);
+      alert("Gagal menyimpan lowongan: " + err.message);
+    } finally { 
+      setIsSubmitting(false); 
+    }
   };
 
   const filteredJobs = jobs.filter(j => (j.title || '').toLowerCase().includes(searchTerm.toLowerCase()));
@@ -186,7 +199,7 @@ export default function KelolaLowongan() {
 
         {/* PAGINATION FOOTER */}
         {totalPages > 1 && (
-          <div className="px-10 py-4 bg-white border-t border-stone-100 flex items-center justify-between">
+          <div className="px-10 py-4 bg-white border-t border-stone-100 flex items-center justify-between shrink-0">
             <button disabled={currentPage === 1} onClick={() => setCurrentPage(currentPage - 1)} className="flex items-center gap-1 text-[10px] font-black uppercase text-stone-400 hover:text-blue-600 disabled:opacity-30 transition-colors"><ChevronLeft size={14} /> Prev</button>
             <div className="flex gap-2">
               {[...Array(totalPages)].map((_, i) => (
@@ -201,7 +214,7 @@ export default function KelolaLowongan() {
       {/* MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-end bg-stone-900/40 backdrop-blur-sm transition-all duration-500">
-          <div className="w-full max-w-2xl h-full bg-white shadow-2xl p-8 sm:p-12 overflow-y-auto animate-in slide-in-from-right duration-500">
+          <div className="w-full max-w-2xl h-full bg-white shadow-2xl p-8 sm:p-12 overflow-y-auto animate-in slide-in-from-right duration-500 custom-scrollbar">
             
             <div className="flex justify-between items-center mb-10 sticky top-0 bg-white/90 backdrop-blur-md py-4 z-10 border-b border-stone-100">
               <h2 className="text-2xl font-black text-stone-900 tracking-tight uppercase">
