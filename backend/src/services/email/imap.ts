@@ -59,20 +59,24 @@ class EmailService {
   }
 
   async fetchUnreadEmails(): Promise<EmailMessage[]> {
+    return this.fetchUnreadEmailsFromMailbox('INBOX');
+  }
+
+  async fetchUnreadEmailsFromMailbox(folderName: string): Promise<EmailMessage[]> {
     if (!this.client) {
       throw new Error('IMAP client not connected');
     }
 
     try {
-      console.log('Fetching unread emails from inbox...');
+      console.log(`Fetching unread emails from ${folderName}...`);
 
-      const mailbox = await this.client.mailboxOpen('INBOX');
-      console.log(`Inbox: ${mailbox.exists} total messages`);
+      const mailbox = await this.client.mailboxOpen(folderName);
+      console.log(`${folderName}: ${mailbox.exists} total messages`);
 
       const unreadSearch = await this.client.search({ seen: false });
       
       if (!unreadSearch || (typeof unreadSearch !== 'boolean' && unreadSearch.length === 0)) {
-        console.log('No unread emails');
+        console.log(`No unread emails in ${folderName}`);
         return [];
       }
 
@@ -83,7 +87,7 @@ class EmailService {
       })) {
         try {
           const email: EmailMessage = {
-            id: String(message.seq),
+            id: `${folderName}:${message.seq}`,
             sender: message.envelope?.from?.[0]?.address || 'Unknown',
             subject: message.envelope?.subject || '(No Subject)',
             receivedDate: message.envelope?.date || new Date(),
@@ -91,7 +95,7 @@ class EmailService {
 
           emails.push(email);
 
-          console.log(`\nEmail #${email.id}:`);
+          console.log(`\nEmail #${message.seq} from ${folderName}:`);
           console.log(`  From: ${email.sender}`);
           console.log(`  Subject: ${email.subject}`);
           console.log(`  Date: ${email.receivedDate.toLocaleString()}`);
@@ -100,11 +104,43 @@ class EmailService {
         }
       }
 
-      console.log(`\nSuccessfully fetched ${emails.length} unread emails`);
+      console.log(`\nSuccessfully fetched ${emails.length} unread emails from ${folderName}`);
       return emails;
     } catch (error) {
-      console.error('Error fetching unread emails:', error);
-      throw error;
+      console.error(`Error fetching unread emails from ${folderName}:`, error);
+      return [];
+    }
+  }
+
+  async fetchEmailRaw(messageId: number): Promise<Buffer | null> {
+    if (!this.client) {
+      throw new Error('IMAP client not connected');
+    }
+
+    try {
+      const message = await this.client.download(messageId, '');
+      const chunks: Buffer[] = [];
+
+      for await (const chunk of message.content) {
+        chunks.push(chunk as Buffer);
+      }
+
+      return Buffer.concat(chunks);
+    } catch (error) {
+      console.error(`Error fetching raw email ${messageId}:`, error);
+      return null;
+    }
+  }
+
+  async markEmailAsRead(messageId: number): Promise<void> {
+    try {
+      if (this.client) {
+        // Flag email as seen
+        await (this.client as any).messageUpdate(messageId, { flags: { add: ['\\Seen'] } });
+        console.log(`Email #${messageId} marked as read`);
+      }
+    } catch (error) {
+      console.error(`Error marking email ${messageId} as read:`, error);
     }
   }
 
