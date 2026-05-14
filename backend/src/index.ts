@@ -1,27 +1,18 @@
 import app from './server';
 import { config } from './config/config';
-import EmailService from './services/email/imap';
+import EmailPollingService from './services/email/poller';
 
 const PORT = config.port;
 
-async function testEmailService(): Promise<void> {
-  try {
-    const emailService = new EmailService();
-    await emailService.connect();
-    await emailService.fetchUnreadEmails();
-    await emailService.disconnect();
-  } catch (error) {
-    console.error(
-      'Email service test failed:',
-      error instanceof Error ? error.message : error
-    );
-  }
-}
+let emailPollingService: EmailPollingService | null = null;
 
 async function startServer(): Promise<void> {
   try {
-    testEmailService();
+    // Start email polling service
+    emailPollingService = new EmailPollingService();
+    await emailPollingService.startPolling();
 
+    // Start Express server
     app.listen(PORT, () => {
       console.log(`🚀 Server running on http://localhost:${PORT}`);
       console.log(`📚 API Docs available at http://localhost:${PORT}${config.apiPrefix}`);
@@ -32,6 +23,17 @@ async function startServer(): Promise<void> {
     process.exit(1);
   }
 }
+
+// Graceful shutdown
+process.on('SIGINT', async () => {
+  console.log('\nShutting down gracefully...');
+  
+  if (emailPollingService) {
+    await emailPollingService.stopPolling();
+  }
+  
+  process.exit(0);
+});
 
 startServer();
 
