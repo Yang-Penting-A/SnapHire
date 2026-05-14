@@ -19,4 +19,13 @@ export const config = {
     connectionString: process.env.AZURE_STORAGE_CONNECTION_STRING || '',
     containerCv: process.env.AZURE_STORAGE_CONTAINER_CV || 'cvs',
   },
+  email: {
+    user: process.env.EMAIL_USER || '',
+    password: process.env.EMAIL_APP_PASSWORD || '',
+    imap: {
+      host: process.env.IMAP_HOST || 'imap.gmail.com',
+      port: parseInt(process.env.IMAP_PORT || '993', 10),
+      secure: process.env.IMAP_SECURE === 'true',
+    },
+  },
 };
