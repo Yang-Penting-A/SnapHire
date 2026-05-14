@@ -64,15 +64,6 @@ router.post(
 
       console.log(`[OAUTH CALLBACK] Processing OAuth for ${userEmail} via ${provider}`);
 
-      // Validate email domain
-      if (!userEmail?.endsWith('@mail.ugm.ac.id')) {
-        console.warn('[OAUTH CALLBACK] Invalid email domain:', userEmail);
-        return res.status(403).json({
-          status: 'error',
-          message: `Email ${userEmail} tidak diizinkan. Hanya email @mail.ugm.ac.id yang dapat login.`
-        });
-      }
-
       // Check if user exists by email (simple approach)
       const userResult = await supabaseService.select('users', {
         email: userEmail

@@ -85,26 +85,7 @@ export default function AuthCallbackPage() {
 
         console.log('[OAUTH CALLBACK] ✅ Session found for:', user.email);
 
-        // Validate email domain
         const email = user.email || '';
-        if (!email.endsWith('@mail.ugm.ac.id')) {
-          console.warn('[OAUTH CALLBACK] ❌ Invalid email domain:', email);
-          
-          // Sign out user
-          await supabase.auth.signOut();
-          
-          setErrorMsg(`Hanya email @mail.ugm.ac.id yang diizinkan. Email Anda: ${email}`);
-          setIsProcessing(false);
-          
-          // Redirect to login after 3 seconds
-          setTimeout(() => {
-            router.push('/login');
-          }, 3000);
-          
-          return;
-        }
-
-        console.log('[OAUTH CALLBACK] ✅ Valid UGM email:', email);
 
         // CRITICAL: Direct database check BEFORE calling backend to prevent Supabase auto-insert
         console.log('[OAUTH CALLBACK] Checking if user exists in database...');
