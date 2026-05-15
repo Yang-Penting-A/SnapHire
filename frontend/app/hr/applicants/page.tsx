@@ -1,25 +1,33 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/app/lib/supabase';
 import { 
-  Search, Star, Loader2, Briefcase, Filter, Inbox, User
+  Search, Star, Loader2, Briefcase, Filter, Inbox, RefreshCw
 } from 'lucide-react';
 
 const MASTER_STATUSES = ['Review AI', 'Shortlisted', 'Interview', 'Technical Test', 'Hired', 'Rejected'];
 
-export default function ListPelamar() {
+function ListPelamarContent() {
   const router = useRouter(); 
+  const searchParams = useSearchParams();
+  
+  const initialJobId = searchParams.get('jobId') || '';
+
   const [applicants, setApplicants] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [availableJobs, setAvailableJobs] = useState<any[]>([]);
   const [availableStatuses] = useState<string[]>(MASTER_STATUSES);
 
+  // State untuk proses Re-scan AI
+  const [scanningIds, setScanningIds] = useState<string[]>([]);
+  const [isBulkScanning, setIsBulkScanning] = useState(false);
+
   const [filters, setFilters] = useState({
     name: '',
     status: '',
-    jobId: ''
+    jobId: initialJobId
   });
 
   const fetchData = async () => {
@@ -74,6 +82,35 @@ export default function ListPelamar() {
     }
   };
 
+  // --- FUNGSI RE-SCAN AI INDIVIDU ---
+  const handleRescan = async (e: React.MouseEvent, appId: string) => {
+    e.stopPropagation(); // Mencegah baris ter-klik
+    setScanningIds(prev => [...prev, appId]);
+    
+    // Simulasi delay proses AI (3 detik)
+    // Nanti ganti dengan pemanggilan API backend AI kamu yang sebenarnya
+    setTimeout(() => {
+      setScanningIds(prev => prev.filter(id => id !== appId));
+      // fetchData(); // Tarik data terbaru setelah AI selesai update skor
+    }, 3000);
+  };
+
+  // --- FUNGSI RE-SCAN AI MASSAL ---
+  const handleBulkRescan = async () => {
+    if (applicants.length === 0) return;
+    setIsBulkScanning(true);
+    
+    const allIds = applicants.map(a => a.application_id);
+    setScanningIds(prev => [...new Set([...prev, ...allIds])]);
+
+    // Simulasi delay proses AI Massal (5 detik)
+    setTimeout(() => {
+      setScanningIds([]);
+      setIsBulkScanning(false);
+      // fetchData(); // Tarik data terbaru setelah AI selesai update skor
+    }, 5000);
+  };
+
   const getStatusBadgeColor = (status: string) => {
     switch (status?.toLowerCase()) {
       case 'hired': return 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100';
@@ -89,7 +126,7 @@ export default function ListPelamar() {
   return (
     <div className="flex flex-col h-[calc(100vh-6rem)] max-w-7xl mx-auto px-4 pb-6 animate-in fade-in duration-700">
       
-      {/* HEADER & FILTERS */}
+      {/* FIXED HEADER & FILTERS */}
       <div className="shrink-0 space-y-6 mb-6">
         <div className="flex flex-col gap-1.5 pt-2">
           <h1 className="text-3xl font-black text-stone-900 tracking-tight uppercase">List Pelamar</h1>
@@ -97,11 +134,11 @@ export default function ListPelamar() {
         </div>
 
         <div className="bg-white p-4 rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-stone-100">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <div className="relative group">
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-3">
+            <div className="relative group lg:col-span-1">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400 group-focus-within:text-blue-600 transition-colors" size={18} />
               <input 
-                type="text" placeholder="Nama Pelamar..." 
+                type="text" placeholder="Nama..." 
                 className="w-full pl-11 pr-4 py-3.5 bg-stone-50 border border-stone-200 rounded-xl outline-none font-bold text-stone-700 text-sm focus:ring-4 focus:ring-blue-500/10 transition-all"
                 value={filters.name}
                 onChange={(e) => setFilters({...filters, name: e.target.value})}
@@ -109,7 +146,7 @@ export default function ListPelamar() {
             </div>
             
             <select 
-              className="px-4 py-3.5 bg-stone-50 border border-stone-200 rounded-xl outline-none font-bold text-stone-600 text-sm transition-all cursor-pointer appearance-none"
+              className="px-4 py-3.5 bg-stone-50 border border-stone-200 rounded-xl outline-none font-bold text-stone-600 text-sm transition-all cursor-pointer appearance-none lg:col-span-1"
               value={filters.status}
               onChange={(e) => setFilters({...filters, status: e.target.value})}
             >
@@ -118,7 +155,7 @@ export default function ListPelamar() {
             </select>
 
             <select 
-              className="px-4 py-3.5 bg-stone-50 border border-stone-200 rounded-xl outline-none font-bold text-stone-600 text-sm transition-all cursor-pointer appearance-none"
+              className="px-4 py-3.5 bg-stone-50 border border-stone-200 rounded-xl outline-none font-bold text-stone-600 text-sm transition-all cursor-pointer appearance-none lg:col-span-1"
               value={filters.jobId}
               onChange={(e) => setFilters({...filters, jobId: e.target.value})}
             >
@@ -128,15 +165,25 @@ export default function ListPelamar() {
 
             <button 
               onClick={() => fetchData()}
-              className="bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl font-black text-[11px] uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2"
+              className="bg-stone-900 hover:bg-stone-800 text-white py-3.5 rounded-xl font-black text-[11px] uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 lg:col-span-1"
             >
-              <Filter size={16} /> Filter Data
+              <Filter size={16} /> Filter
+            </button>
+
+            {/* TOMBOL BULK RE-SCAN */}
+            <button 
+              onClick={handleBulkRescan}
+              disabled={isBulkScanning || applicants.length === 0}
+              className="bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 py-3.5 rounded-xl font-black text-[11px] uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 lg:col-span-1"
+            >
+              <RefreshCw size={16} className={isBulkScanning ? "animate-spin" : ""} /> 
+              {isBulkScanning ? 'Scanning...' : 'Rescan AI'}
             </button>
           </div>
         </div>
       </div>
 
-      {/* TABLE CONTAINER */}
+      {/* SCROLLABLE TABLE CONTAINER */}
       <div className="flex-1 min-h-0 bg-white rounded-[2.5rem] border border-stone-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden flex flex-col">
         <div className="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar">
           <table className="w-full text-left border-collapse table-fixed min-w-[1000px]">
@@ -147,7 +194,7 @@ export default function ListPelamar() {
                 <th className="px-8 py-6 text-stone-400 font-black text-[10px] uppercase tracking-[0.2em] w-[22%]">Posisi Lowongan</th>
                 <th className="px-4 py-6 text-stone-400 font-black text-[10px] uppercase tracking-[0.2em] w-32 text-center">AI Score</th>
                 <th className="px-4 py-6 text-stone-400 font-black text-[10px] uppercase tracking-[0.2em] w-48 text-center">Update Status</th>
-                <th className="px-4 py-6 text-stone-400 font-black text-[10px] uppercase tracking-[0.2em] w-32 text-center">Aksi</th>
+                <th className="px-4 py-6 text-stone-400 font-black text-[10px] uppercase tracking-[0.2em] w-40 text-center">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-50">
@@ -166,6 +213,7 @@ export default function ListPelamar() {
                 applicants.map((app, index) => {
                   const candidateName = app.candidates?.name || 'Anonymous';
                   const currentStatus = app.status_application || 'Review AI';
+                  const isScanning = scanningIds.includes(app.application_id);
 
                   return (
                     <tr 
@@ -177,7 +225,6 @@ export default function ListPelamar() {
                         <span className="font-black text-stone-300 group-hover:text-stone-500 transition-colors text-sm">#{index + 1}</span>
                       </td>
 
-                      {/* KANDIDAT - Left (Avatar Dihapus) */}
                       <td className="px-10 py-6">
                         <div className="min-w-0">
                           <p className="font-black text-stone-900 text-[15px] truncate group-hover:text-blue-600 transition-colors">
@@ -197,10 +244,16 @@ export default function ListPelamar() {
                       </td>
 
                       <td className="px-4 py-6 text-center">
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-stone-50 text-stone-700 rounded-lg font-black text-xs border border-stone-200">
-                          <Star size={12} className="text-stone-400 fill-stone-400" />
-                          {app.ai_score || 0}%
-                        </div>
+                        {app.ai_score === null || app.ai_score === undefined || isScanning ? (
+                          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg font-black text-[10px] border border-blue-100 uppercase tracking-widest animate-pulse">
+                            <Loader2 size={12} className="animate-spin" /> Proses...
+                          </div>
+                        ) : (
+                          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-stone-50 text-stone-700 rounded-lg font-black text-xs border border-stone-200">
+                            <Star size={12} className={app.ai_score > 70 ? "text-amber-400 fill-amber-400" : "text-stone-400 fill-stone-400"} />
+                            {app.ai_score}%
+                          </div>
+                        )}
                       </td>
 
                       <td className="px-4 py-6 text-center">
@@ -216,9 +269,21 @@ export default function ListPelamar() {
                       </td>
 
                       <td className="px-4 py-6 text-center">
-                        <button className="px-5 py-2 bg-white border border-stone-200 text-stone-600 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all hover:bg-blue-600 hover:text-white hover:border-blue-600 active:scale-95">
-                          Profil
-                        </button>
+                        <div className="flex items-center justify-center gap-2">
+                          {/* TOMBOL RE-SCAN INDIVIDU */}
+                          <button 
+                            onClick={(e) => handleRescan(e, app.application_id)}
+                            disabled={isScanning}
+                            title="Proses Ulang AI"
+                            className="p-2.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-xl hover:bg-blue-100 transition-colors disabled:opacity-50"
+                          >
+                            <RefreshCw size={14} className={isScanning ? "animate-spin" : ""} strokeWidth={3} />
+                          </button>
+                          
+                          <button className="px-5 py-2.5 bg-white border border-stone-200 text-stone-600 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all hover:bg-stone-900 hover:text-white hover:border-stone-900 active:scale-95">
+                            Profil
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -230,5 +295,13 @@ export default function ListPelamar() {
       </div>
 
     </div>
+  );
+}
+
+export default function ListPelamar() {
+  return (
+    <Suspense fallback={<div className="h-[80vh] flex items-center justify-center"><Loader2 className="animate-spin text-blue-600" size={40} /></div>}>
+      <ListPelamarContent />
+    </Suspense>
   );
 }
