@@ -23,7 +23,7 @@ export const supabaseService = {
       if (error) throw error;
       return { success: true, message: 'Supabase connection successful' };
     } catch (error) {
-      console.error('Supabase connection error:', error);
+      console.error('[DB] Connection failed: ' + error);
       return { success: false, message: 'Failed to connect to Supabase' };
     }
   },
@@ -41,7 +41,7 @@ export const supabaseService = {
       if (error) throw error;
       return { success: true, data };
     } catch (error) {
-      console.error('Supabase select error:', error);
+      console.error('[DB] Select error: ' + error);
       return { success: false, message: String(error) };
     }
   },
@@ -56,7 +56,7 @@ export const supabaseService = {
       if (error) throw error;
       return { success: true, data: insertedData };
     } catch (error) {
-      console.error('Supabase insert error:', error);
+      console.error('[DB] Insert error: ' + error);
       return { success: false, message: String(error) };
     }
   },
@@ -72,7 +72,7 @@ export const supabaseService = {
       if (error) throw error;
       return { success: true, data: updatedData };
     } catch (error) {
-      console.error('Supabase update error:', error);
+      console.error('[DB] Update error: ' + error);
       return { success: false, message: String(error) };
     }
   },
@@ -87,7 +87,7 @@ export const supabaseService = {
       if (error) throw error;
       return { success: true, message: 'Deleted successfully' };
     } catch (error) {
-      console.error('Supabase delete error:', error);
+      console.error('[DB] Delete error: ' + error);
       return { success: false, message: String(error) };
     }
   },

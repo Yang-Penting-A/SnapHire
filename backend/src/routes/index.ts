@@ -29,7 +29,7 @@ router.post(
       }
 
       const user = result.data[0];
-      console.log(`[LOGIN] ${user.name} (${user.role}) logged in successfully`);
+      console.log(`[LOGIN] User: ${user.name} (${user.role})`);
 
       res.status(200).json({
         status: 'success',
@@ -62,24 +62,12 @@ router.post(
       const userEmail = (req as any).user?.email;
       const { email, name, provider, provider_id } = req.body;
 
-      console.log(`[OAUTH CALLBACK] Processing OAuth for ${userEmail} via ${provider}`);
-
-      // Validate email domain
-      if (!userEmail?.endsWith('@mail.ugm.ac.id')) {
-        console.warn('[OAUTH CALLBACK] Invalid email domain:', userEmail);
-        return res.status(403).json({
-          status: 'error',
-          message: `Email ${userEmail} tidak diizinkan. Hanya email @mail.ugm.ac.id yang dapat login.`
-        });
-      }
-
       // Check if user exists by email (simple approach)
       const userResult = await supabaseService.select('users', {
         email: userEmail
       });
 
       if (!userResult.success || !userResult.data || userResult.data.length === 0) {
-        console.warn('[OAUTH CALLBACK] User not found in database:', userEmail);
         return res.status(404).json({
           status: 'error',
           message: `User dengan email ${userEmail} belum terdaftar. Silahkan hubungi admin untuk didaftarkan.`
@@ -87,12 +75,11 @@ router.post(
       }
 
       const userData = userResult.data[0];
-      console.log(`[OAUTH CALLBACK] ✅ User found: ${userData.name} (${userData.role})`);
+      console.log(`[AUTH] OAuth: ${userData.name} (${userData.role})`);
 
       // CRITICAL: Validate role is only 'hr' or 'admin'
       const userRole = userData.role?.toLowerCase();
       if (!['hr', 'admin'].includes(userRole)) {
-        console.warn('[OAUTH CALLBACK] ❌ User has invalid role:', userData.role);
         return res.status(403).json({
           status: 'error',
           message: `User dengan role '${userData.role}' tidak diizinkan login.`
@@ -166,20 +153,20 @@ router.post(
       );
 
       if (updateError) {
-        console.error('[RESET PASSWORD] Supabase update error:', updateError.message);
+        console.error('[AUTH] Password update error: ' + updateError.message);
         return res.status(500).json({
           status: 'error',
           message: 'Gagal memperbarui password. Silahkan coba lagi.'
         });
       }
 
-      console.log(`[RESET PASSWORD] ✅ Password reset successful for ${email}`);
+      console.log(`[AUTH] Password reset: ${email}`);
       res.status(200).json({
         status: 'success',
         message: 'Password berhasil diperbarui'
       });
     } catch (error: any) {
-      console.error('[RESET PASSWORD] Error:', error.message);
+      console.error('[AUTH] Error: ' + error.message);
       res.status(500).json({
         status: 'error',
         message: error.message || 'Terjadi kesalahan saat mereset password'

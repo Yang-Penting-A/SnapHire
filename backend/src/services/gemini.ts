@@ -1,5 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import dotenv from "dotenv";
+import { sleep } from "../utils/sleep";
+import { parseGeminiJson } from "../utils/jsonSanitizer";
 
 dotenv.config();
 
@@ -14,7 +16,6 @@ async function retryWithBackoff<T>(
 ): Promise<T> {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      console.log(`[Gemini] Attempt ${attempt}/${maxRetries}...`);
       return await fn();
     } catch (error: any) {
       const is503 = error.status === 503 || error.status === 429;
@@ -22,7 +23,6 @@ async function retryWithBackoff<T>(
       
       if (is503 && !isLastAttempt) {
         const delayMs = baseDelayMs * Math.pow(2, attempt - 1);
-        console.log(`[Gemini] Server Sibuk (503/429) - retrying in ${delayMs}ms...`);
         await new Promise(resolve => setTimeout(resolve, delayMs));
       } else {
         throw error;
@@ -34,6 +34,9 @@ async function retryWithBackoff<T>(
 
 // --- FUNGSI 1: EKSTRAKSI DATA CV ---
 export const extractResumeData = async (textContent: string) => {
+  // Rate limiting: avoid exceeding Gemini RPM (15/minute) quota
+  await sleep(2000);
+  
   const model = genAI.getGenerativeModel({ 
     model: "gemini-2.5-flash-lite", // Pakai versi lite biar lebih cepat dan hemat cost
     generationConfig: { 
@@ -65,12 +68,22 @@ export const extractResumeData = async (textContent: string) => {
     }
   `;
   
+  console.log(`[Gemini] Making API call...`);
   const result = await retryWithBackoff(() => model.generateContent(prompt), 3, 2000);
-  return JSON.parse(result.response.text());
+  
+  // Use robust JSON sanitizer instead of basic markdown stripping
+  const responseText = result.response.text();
+  const parsedData = parseGeminiJson(responseText);
+  
+  console.log(`[Gemini] Resume extraction success`);
+  return parsedData;
 };
 
 // --- FUNGSI 2: ANALISIS & PENILAIAN MATCH SCORE ---
 export const calculateMatchScore = async (resumeJSON: any, jobRequirements: string) => {
+  // Rate limiting: avoid exceeding Gemini RPM (15/minute) quota
+  await sleep(2000);
+  
   const model = genAI.getGenerativeModel({ 
     model: "gemini-2.5-flash", 
     generationConfig: { 
@@ -111,6 +124,13 @@ export const calculateMatchScore = async (resumeJSON: any, jobRequirements: stri
     }
   `;
 
+  console.log(`[Gemini] Making API call...`);
   const result = await retryWithBackoff(() => model.generateContent(prompt), 3, 2000);
-  return JSON.parse(result.response.text());
+  
+  // Use robust JSON sanitizer instead of basic markdown stripping
+  const responseText = result.response.text();
+  const parsedData = parseGeminiJson(responseText);
+  
+  console.log(`[Gemini] Match score: ${parsedData.score}%`);
+  return parsedData;
 };

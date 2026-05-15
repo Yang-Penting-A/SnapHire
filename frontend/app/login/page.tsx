@@ -29,7 +29,6 @@ export default function LoginPage() {
     if (error) {
       const errorMessages: Record<string, string> = {
         'unauthorized': 'Email Anda belum terdaftar. Hubungi administrator untuk didaftarkan.',
-        'invalid_domain': 'Hanya email @mail.ugm.ac.id yang diizinkan.',
         'invalid_role': 'Akun Anda tidak memiliki akses ke sistem ini.',
       };
       setErrorMsg(errorMessages[error] || 'Terjadi kesalahan saat login. Silahkan coba lagi.');
@@ -106,9 +105,6 @@ export default function LoginPage() {
         provider: 'google',
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
-          queryParams: {
-            hd: 'ugm.ac.id', // Only allow UGM domain
-          }
         }
       });
 
