@@ -8,11 +8,13 @@ let emailPollingService: EmailPollingService | null = null;
 
 async function startServer(): Promise<void> {
   try {
-    // Start email polling service
+    // Start email polling service (non-blocking)
     emailPollingService = new EmailPollingService();
-    await emailPollingService.startPolling();
+    emailPollingService.startPolling().catch(error => {
+      console.error('[POLLING] Start error: ' + error);
+    });
 
-    // Start Express server
+    // Start Express server immediately
     app.listen(PORT, () => {
       console.log(`🚀 Server running on http://localhost:${PORT}`);
       console.log(`📚 API Docs available at http://localhost:${PORT}${config.apiPrefix}`);
@@ -26,7 +28,7 @@ async function startServer(): Promise<void> {
 
 // Graceful shutdown
 process.on('SIGINT', async () => {
-  console.log('\nShutting down gracefully...');
+  console.log('[SERVER] Shutting down gracefully...');
   
   if (emailPollingService) {
     await emailPollingService.stopPolling();

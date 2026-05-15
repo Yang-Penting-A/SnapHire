@@ -36,7 +36,7 @@ export const azureService = {
         },
       };
     } catch (error) {
-      console.error('Azure upload error:', error);
+      console.error('[AZURE] Upload error: ' + error);
       return { success: false, message: String(error) };
     }
   },
@@ -53,7 +53,7 @@ export const azureService = {
         data: fileBuffer,
       };
     } catch (error) {
-      console.error('Azure download error:', error);
+      console.error('[AZURE] Download error: ' + error);
       return { success: false, message: String(error) };
     }
   },
@@ -65,7 +65,7 @@ export const azureService = {
       await blockBlobClient.delete();
       return { success: true, message: 'File deleted successfully' };
     } catch (error) {
-      console.error('Azure delete error:', error);
+      console.error('[AZURE] Delete error: ' + error);
       return { success: false, message: String(error) };
     }
   },
@@ -83,7 +83,7 @@ export const azureService = {
         data: files,
       };
     } catch (error) {
-      console.error('Azure list error:', error);
+      console.error('[AZURE] List error: ' + error);
       return { success: false, message: String(error) };
     }
   },
@@ -98,7 +98,7 @@ export const azureService = {
         data: properties,
       };
     } catch (error) {
-      console.error('Azure connection error:', error);
+      console.error('[AZURE] Connection error: ' + error);
       return { success: false, message: 'Failed to connect to Azure Storage' };
     }
   },
