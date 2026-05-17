@@ -103,13 +103,28 @@ router.post("/upload", upload.single("file"), async (req, res) => {
       console.warn("[AI] ⚠ Scoring unavailable, using manual review");
     }
 
+    const normalizeUrl = (url?: string) => {
+      if (!url) return null;
+
+      const trimmed = url.trim();
+
+      if (
+        trimmed.startsWith("http://") ||
+        trimmed.startsWith("https://")
+      ) {
+        return trimmed;
+      }
+
+      return `https://${trimmed}`;
+    };
+
     // Insert candidate to database
     const candidateData = {
       name: resumeData.nama,
       email: resumeData.email,
       phone_number: resumeData.phone,
-      linkedin_url: resumeData.linkedin_url,
-      portfolio_url: resumeData.portfolio_url,
+      linkedin_url: normalizeUrl(resumeData.linkedin_url),
+      portfolio_url: normalizeUrl(resumeData.portfolio_url),
       cv_text: rawText.substring(0, 1000) + '...',
       cv_file_url: publicUrl
     };
@@ -120,8 +135,8 @@ router.post("/upload", upload.single("file"), async (req, res) => {
         name: resumeData.nama,
         email: resumeData.email,
         phone_number: resumeData.phone,
-        linkedin_url: resumeData.linkedin_url,
-        portfolio_url: resumeData.portfolio_url,
+        linkedin_url: normalizeUrl(resumeData.linkedin_url),
+        portfolio_url: normalizeUrl(resumeData.portfolio_url),
         cv_text: rawText,
         cv_file_url: publicUrl
       }])
