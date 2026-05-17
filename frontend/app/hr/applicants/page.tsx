@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, Suspense } from 'react';
 import InterviewModal from '@/app/components/InterviewModal';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/app/lib/supabase';
+import ConfirmRescanModal from "@/app/components/ConfirmRescanModal";
 import { 
   Search, Star, Loader2, Briefcase, Filter, Inbox, RefreshCw
 } from 'lucide-react';
@@ -25,6 +26,11 @@ function ListPelamarContent() {
   const [scanningIds, setScanningIds] = useState<string[]>([]);
   const [isBulkScanning, setIsBulkScanning] = useState(false);
   const fetchDataRef = useRef<() => void>(() => {});
+
+  const [openConfirm, setOpenConfirm] = useState(false); 
+  const [isBulkRescan, setIsBulkRescan] = useState(false); 
+  const [selectedCandidate, setSelectedCandidate] = useState<any>(null); 
+  const [isRescanning, setIsRescanning] = useState(false);
 
   const [filters, setFilters] = useState({
     name: '',
@@ -153,7 +159,7 @@ function ListPelamarContent() {
     }, 3000);
   };
 
-  // --- FUNGSI RE-SCAN AI MASSAL ---
+  // FUNGSI RE-SCAN AI MASSAL 
   const handleBulkRescan = async () => {
     if (applicants.length === 0) return;
     setIsBulkScanning(true);
@@ -168,6 +174,30 @@ function ListPelamarContent() {
       // fetchData(); // Tarik data terbaru setelah AI selesai update skor
     }, 5000);
   };
+
+  const handleConfirmRescan = async () => {
+  try {
+    setIsRescanning(true);
+
+    if (isBulkRescan) {
+      await handleBulkRescan();
+    } else if (selectedCandidate) {
+      await handleRescan(
+        {
+          stopPropagation: () => {},
+        } as React.MouseEvent,
+        selectedCandidate.application_id
+      );
+    }
+
+    setOpenConfirm(false);
+
+  } catch (err) {
+    console.error("Rescan confirmation error:", err);
+  } finally {
+    setIsRescanning(false);
+  }
+};
 
   const getStatusBadgeColor = (status: string) => {
     switch (status?.toLowerCase()) {
@@ -244,7 +274,11 @@ function ListPelamarContent() {
 
             {/* TOMBOL BULK RE-SCAN */}
             <button 
-              onClick={handleBulkRescan}
+              onClick={() => {
+                setIsBulkRescan(true);
+                setSelectedCandidate(null);
+                setOpenConfirm(true);
+              }}
               disabled={isBulkScanning || applicants.length === 0}
               className="bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 py-3.5 rounded-xl font-black text-[11px] uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 lg:col-span-1"
             >
@@ -358,7 +392,13 @@ function ListPelamarContent() {
                         <div className="flex items-center justify-center gap-2">
                           {/* TOMBOL RE-SCAN INDIVIDU */}
                           <button 
-                            onClick={(e) => handleRescan(e, app.application_id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+
+                              setSelectedCandidate(app);
+                              setIsBulkRescan(false);
+                              setOpenConfirm(true);
+                            }}
                             disabled={isScanning}
                             title="Proses Ulang AI"
                             className="p-2.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-xl hover:bg-blue-100 transition-colors disabled:opacity-50"
@@ -379,7 +419,14 @@ function ListPelamarContent() {
           </table>
         </div>
       </div>
-
+    <ConfirmRescanModal
+      isOpen={openConfirm}
+      onClose={() => setOpenConfirm(false)}
+      onConfirm={handleConfirmRescan}
+      isBulk={isBulkRescan}
+      candidateName={selectedCandidate?.candidates?.name}
+      isLoading={isRescanning}
+    />
     </div>
   );
 }
