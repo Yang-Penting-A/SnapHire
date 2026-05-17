@@ -1,9 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { supabaseService } from '../services/supabase';
 import ATSEmailService from '../services/email/sendEmail';
-import { generateInterviewInvitationHTML } from '../services/email/templates';
 import { config } from '../config/config';
-import crypto from 'crypto';
 
 const router = Router();
 
@@ -132,17 +130,22 @@ router.post('/trigger-ats-email', async (req: Request, res: Response) => {
 
       case 'Technical Test':
         console.log('[ATS AUTOMATION] Handling Technical Test status');
-        await handleTechnicalTestAutomation(applicationId, candidate, job, emailService);
+        await handleTechnicalTestAutomation(applicationId, candidate, job, emailService, interviewData);
+        break;
+
+      case 'Shortlisted':
+        console.log('[ATS AUTOMATION] Handling Shortlisted status');
+        await handleShortlistedAutomation(applicationId, candidate, job, emailService, interviewData);
         break;
 
       case 'Hired':
         console.log('[ATS AUTOMATION] Handling Hired status');
-        await handleHiredAutomation(applicationId, candidate, job, emailService);
+        await handleHiredAutomation(applicationId, candidate, job, emailService, interviewData);
         break;
 
       case 'Rejected':
         console.log('[ATS AUTOMATION] Handling Rejected status');
-        await handleRejectionAutomation(applicationId, candidate, job, emailService);
+        await handleRejectionAutomation(applicationId, candidate, job, emailService, interviewData);
         break;
 
       default:
@@ -177,18 +180,14 @@ async function handleInterviewAutomation(
     console.log('[INTERVIEW AUTOMATION] Starting for application:', applicationId);
     console.log('[INTERVIEW AUTOMATION] Interview data:', interviewData);
 
-    // Generate secure confirmation token
-    const confirmationToken = crypto.randomBytes(32).toString('hex');
-    console.log('[INTERVIEW AUTOMATION] Confirmation token:', confirmationToken);
-
-    // Update applications table with confirmation token and status
-    console.log('[INTERVIEW AUTOMATION] Updating applications table with confirmation data');
+    // Update applications table with confirmation_status=PENDING (simplified, no token)
+    console.log('[INTERVIEW AUTOMATION] Updating applications table with confirmation_status=PENDING');
     const updateResult = await supabaseService.update(
       'applications',
       {
-        confirmation_token: confirmationToken,
         confirmation_status: 'PENDING',
-        confirmation_expired_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+        interview_date: interviewData?.interviewDate || null,
+        interview_location: interviewData?.interviewLocation || null
       },
       'application_id',
       applicationId
@@ -202,16 +201,9 @@ async function handleInterviewAutomation(
       return;
     }
 
-    console.log('[INTERVIEW AUTOMATION] Confirmation data saved to applications table');
+    console.log('[INTERVIEW AUTOMATION] Confirmation status saved to applications table');
 
-    // Build confirmation link pointing to backend public confirmation endpoint
-    const backendBase = (process.env.BACKEND_URL || `http://localhost:${config.port}`).replace(/\/$/, '');
-    // Use backend path /api/interviews/confirm/:token
-    const confirmationLink = `${backendBase}${config.apiPrefix}/interviews/confirm/${confirmationToken}`;
-
-    console.log('[INTERVIEW AUTOMATION] Confirmation link:', confirmationLink);
-
-    // Prepare email HTML using existing template
+    // Prepare interview details for email
     const interviewDateTime = interviewData
       ? `${interviewData.interviewDate || ''} ${interviewData.interviewTime || ''}`.trim()
       : 'TBA';
@@ -230,26 +222,16 @@ async function handleInterviewAutomation(
       ? typeMap[interviewData.interviewType] || interviewData.interviewType.toString().toLowerCase()
       : 'virtual';
 
-    const emailHtml = generateInterviewInvitationHTML({
-      candidateName: candidate.name,
-      jobTitle: job.title,
-      companyName: process.env.COMPANY_NAME || 'SnapHire',
-      interviewDate: interviewDateTime,
-      interviewDuration,
-      interviewLocation: interviewData?.interviewLocation || 'To be confirmed',
-      interviewType,
-      confirmationLink,
-      additionalInstructions: interviewData?.additionalInstructions,
-      hireName: process.env.HIRE_NAME || 'Recruitment Team'
-    });
-
-    console.log('[INTERVIEW AUTOMATION] Prepared email HTML, sending via email service');
-
-    const emailResult = await emailService.sendEmail({
-      to: candidate.email,
-      subject: `Interview Invitation – ${job.title}`,
-      html: emailHtml
-    });
+    // Send interview invitation email with direct response link (applicationId, no token)
+    console.log('[INTERVIEW AUTOMATION] Sending interview invitation email');
+    const emailResult = await emailService.sendInterviewInvitation(
+      candidate.email,
+      candidate.name,
+      job.title,
+      interviewDateTime,
+      interviewData?.interviewLocation || 'To be confirmed',
+      applicationId
+    );
 
     if (!emailResult.success) {
       console.error('[INTERVIEW AUTOMATION] Failed to send email:', {
@@ -274,22 +256,44 @@ async function handleTechnicalTestAutomation(
   applicationId: string,
   candidate: any,
   job: any,
-  emailService: ATSEmailService
+  emailService: ATSEmailService,
+  testData?: any
 ) {
   try {
     console.log('[TECHNICAL TEST AUTOMATION] Starting for application:', applicationId);
+    console.log('[TECHNICAL TEST AUTOMATION] Test data:', testData);
     console.log('[TECHNICAL TEST AUTOMATION] Email details:', {
       to: candidate.email,
       candidateName: candidate.name,
       jobTitle: job.title
     });
 
-    const emailResult = await emailService.sendTechnicalTestNotification(
+    // Determine test type from testData or default to Assessment
+    const testType = testData?.testType || 'Assessment';
+
+    // Prepare test data for email template
+    const emailTestData = {
+      candidateName: candidate.name,
+      jobTitle: job.title,
+      testType,
+      ...(testData?.assessmentLink && { assessmentLink: testData.assessmentLink }),
+      ...(testData?.deadlineDate && { deadlineDate: testData.deadlineDate }),
+      ...(testData?.deadlineTime && { deadlineTime: testData.deadlineTime }),
+      ...(testData?.estimatedDuration && { estimatedDuration: testData.estimatedDuration }),
+      ...(testData?.meetingLink && { meetingLink: testData.meetingLink }),
+      ...(testData?.scheduleDate && { scheduleDate: testData.scheduleDate }),
+      ...(testData?.scheduleTime && { scheduleTime: testData.scheduleTime }),
+      ...(testData?.duration && { duration: testData.duration }),
+      ...(testData?.instructions && { instructions: testData.instructions }),
+      hireName: process.env.HIRE_NAME || 'Recruitment Team'
+    };
+
+    const emailResult = await emailService.sendTechnicalTestEmail(
       candidate.email,
       candidate.name,
       job.title,
-      `${process.env.FRONTEND_URL}/test/${applicationId}`,
-      'Check email for test details and deadline'
+      testType,
+      emailTestData
     );
 
     if (!emailResult.success) {
@@ -315,20 +319,35 @@ async function handleHiredAutomation(
   applicationId: string,
   candidate: any,
   job: any,
-  emailService: ATSEmailService
+  emailService: ATSEmailService,
+  hiredData?: any
 ) {
   try {
     console.log('[HIRED AUTOMATION] Starting for application:', applicationId);
+    console.log('[HIRED AUTOMATION] Hired data:', hiredData);
     console.log('[HIRED AUTOMATION] Email details:', {
       to: candidate.email,
       candidateName: candidate.name,
       jobTitle: job.title
     });
 
-    const emailResult = await emailService.sendHiredNotification(
+    // Prepare hired data for email template
+    const emailHiredData = {
+      candidateName: candidate.name,
+      jobTitle: hiredData?.jobTitle || job.title,
+      ...(hiredData?.startDate && { startDate: hiredData.startDate }),
+      ...(hiredData?.salary && { salary: hiredData.salary }),
+      ...(hiredData?.department && { department: hiredData.department }),
+      ...(hiredData?.manager && { manager: hiredData.manager }),
+      ...(hiredData?.additionalMessage && { additionalMessage: hiredData.additionalMessage }),
+      hireName: process.env.HIRE_NAME || 'Human Resources Team'
+    };
+
+    const emailResult = await emailService.sendHiredEmail(
       candidate.email,
       candidate.name,
-      job.title
+      job.title,
+      emailHiredData
     );
 
     if (!emailResult.success) {
@@ -354,20 +373,31 @@ async function handleRejectionAutomation(
   applicationId: string,
   candidate: any,
   job: any,
-  emailService: ATSEmailService
+  emailService: ATSEmailService,
+  rejectionData?: any
 ) {
   try {
     console.log('[REJECTION AUTOMATION] Starting for application:', applicationId);
+    console.log('[REJECTION AUTOMATION] Rejection data:', rejectionData);
     console.log('[REJECTION AUTOMATION] Email details:', {
       to: candidate.email,
       candidateName: candidate.name,
       jobTitle: job.title
     });
 
-    const emailResult = await emailService.sendRejectionNotification(
+    // Prepare rejection data for email template
+    const emailRejectionData = {
+      candidateName: candidate.name,
+      jobTitle: job.title,
+      ...(rejectionData?.reason && { reason: rejectionData.reason }),
+      hireName: process.env.HIRE_NAME || 'Recruitment Team'
+    };
+
+    const emailResult = await emailService.sendRejectionEmail(
       candidate.email,
       candidate.name,
-      job.title
+      job.title,
+      emailRejectionData
     );
 
     if (!emailResult.success) {
@@ -385,6 +415,55 @@ async function handleRejectionAutomation(
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('[REJECTION AUTOMATION] Exception:', errorMessage);
     console.error('[REJECTION AUTOMATION] Stack:', error instanceof Error ? error.stack : 'N/A');
+  }
+}
+
+// Shortlisted automation
+async function handleShortlistedAutomation(
+  applicationId: string,
+  candidate: any,
+  job: any,
+  emailService: ATSEmailService,
+  shortlistData?: any
+) {
+  try {
+    console.log('[SHORTLISTED AUTOMATION] Starting for application:', applicationId);
+    console.log('[SHORTLISTED AUTOMATION] Shortlist data:', shortlistData);
+    console.log('[SHORTLISTED AUTOMATION] Email details:', {
+      to: candidate.email,
+      candidateName: candidate.name,
+      jobTitle: job.title
+    });
+
+    const emailShortlistData = {
+      candidateName: candidate.name,
+      jobTitle: job.title,
+      ...(shortlistData?.additionalMessage && { additionalMessage: shortlistData.additionalMessage }),
+      hireName: process.env.HIRE_NAME || 'Recruitment Team'
+    };
+
+    const emailResult = await emailService.sendShortlistedEmail(
+      candidate.email,
+      candidate.name,
+      job.title,
+      emailShortlistData
+    );
+
+    if (!emailResult.success) {
+      console.error('[SHORTLISTED AUTOMATION] Failed to send email:', {
+        success: emailResult.success,
+        error: emailResult.error
+      });
+    } else {
+      console.log('[SHORTLISTED AUTOMATION] Email sent successfully:', {
+        messageId: emailResult.messageId,
+        to: candidate.email
+      });
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('[SHORTLISTED AUTOMATION] Exception:', errorMessage);
+    console.error('[SHORTLISTED AUTOMATION] Stack:', error instanceof Error ? error.stack : 'N/A');
   }
 }
 

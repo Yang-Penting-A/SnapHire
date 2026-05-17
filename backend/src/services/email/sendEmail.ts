@@ -1,5 +1,16 @@
 import nodemailer from 'nodemailer';
 import { config } from '../../config/config';
+import {
+  generateInterviewInvitationHTML,
+  generateTechnicalTestInvitationHTML,
+  generateHiredNotificationHTML,
+  generateRejectionNotificationHTML,
+  generateShortlistedNotificationHTML,
+  TechnicalTestInvitationData,
+  HiredNotificationData,
+  RejectionNotificationData,
+  ShortlistedNotificationData,
+} from './templates';
 
 interface EmailPayload {
   to: string;
@@ -130,7 +141,7 @@ class ATSEmailService {
    * @param jobTitle Title of the job position
    * @param interviewDate Date and time of the interview
    * @param interviewLocation Location of the interview (physical or meeting link)
-   * @param confirmationToken Unique token for interview confirmation
+   * @param applicationId Application ID for direct response link (simplified, no token)
    * @returns SendEmailResult with success status
    */
   async sendInterviewInvitation(
@@ -139,7 +150,7 @@ class ATSEmailService {
     jobTitle: string,
     interviewDate: string,
     interviewLocation: string,
-    confirmationToken: string
+    applicationId: string
   ): Promise<SendEmailResult> {
     try {
       console.log('[ATS Email Service] sendInterviewInvitation called with:', {
@@ -148,21 +159,25 @@ class ATSEmailService {
         jobTitle,
         interviewDate,
         interviewLocation,
-        tokenLength: confirmationToken?.length
+        applicationId
       });
 
       const backendBase = this.getBackendBaseUrl();
-      const confirmationLink = `${backendBase}${config.apiPrefix}/interviews/confirm/${confirmationToken}`;
+      // Simplified direct response links using application_id (no token)
+      const confirmationLink = `${backendBase}${config.apiPrefix}/interviews/respond?id=${applicationId}&status=CONFIRMED`;
+      const declineLink = `${backendBase}${config.apiPrefix}/interviews/respond?id=${applicationId}&status=DECLINED`;
       console.log('[ATS Email Service] Confirmation link built:', confirmationLink);
+      console.log('[ATS Email Service] Decline link built:', declineLink);
 
-      // Build HTML email content
-      const htmlContent = this.buildInterviewInvitationHTML(
+      // Build HTML email content using template
+      const htmlContent = generateInterviewInvitationHTML({
         candidateName,
         jobTitle,
         interviewDate,
         interviewLocation,
-        confirmationLink
-      );
+        confirmationLink,
+        declineLink,
+      });
 
       console.log('[ATS Email Service] HTML content built, length:', htmlContent.length);
 
@@ -186,7 +201,57 @@ class ATSEmailService {
   }
 
   /**
-   * Send technical test notification email
+   * Send technical test invitation email
+   * 
+   * @param candidateEmail Email address of the candidate
+   * @param candidateName Name of the candidate
+   * @param jobTitle Title of the job position
+   * @param testType Type of test (Assessment, Live Coding, Take Home Project, etc.)
+   * @param testData Additional test-specific data
+   * @returns SendEmailResult with success status
+   */
+  async sendTechnicalTestEmail(
+    candidateEmail: string,
+    candidateName: string,
+    jobTitle: string,
+    testType: 'Assessment' | 'Live Coding' | 'Take Home Project' | 'Online Interview' | 'Offline Interview' | 'Other',
+    testData: Partial<TechnicalTestInvitationData> = {}
+  ): Promise<SendEmailResult> {
+    try {
+      console.log('[ATS Email Service] sendTechnicalTestEmail called with:', {
+        candidateEmail,
+        candidateName,
+        jobTitle,
+        testType,
+        testDataKeys: Object.keys(testData)
+      });
+
+      const htmlContent = generateTechnicalTestInvitationHTML({
+        candidateName,
+        jobTitle,
+        testType,
+        ...testData,
+      });
+
+      console.log('[ATS Email Service] Technical Test HTML built, length:', htmlContent.length);
+
+      return await this.sendEmail({
+        to: candidateEmail,
+        subject: `Technical Test Invitation - ${jobTitle} at SnapHire`,
+        html: htmlContent,
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[ATS Email Service] Exception in sendTechnicalTestEmail:', errorMessage);
+      return {
+        success: false,
+        error: errorMessage,
+      };
+    }
+  }
+
+  /**
+   * Send technical test notification email (legacy method, kept for backwards compatibility)
    * 
    * @param candidateEmail Email address of the candidate
    * @param candidateName Name of the candidate
@@ -202,27 +267,57 @@ class ATSEmailService {
     testLink: string,
     deadline: string
   ): Promise<SendEmailResult> {
+    return this.sendTechnicalTestEmail(
+      candidateEmail,
+      candidateName,
+      jobTitle,
+      'Assessment',
+      {
+        assessmentLink: testLink,
+        deadlineDate: deadline,
+      }
+    );
+  }
+
+  /**
+   * Send hired notification email
+   * 
+   * @param candidateEmail Email address of the candidate
+   * @param candidateName Name of the candidate
+   * @param jobTitle Title of the job position
+   * @param hiredData Additional offer details
+   * @returns SendEmailResult with success status
+   */
+  async sendHiredEmail(
+    candidateEmail: string,
+    candidateName: string,
+    jobTitle: string,
+    hiredData: Partial<HiredNotificationData> = {}
+  ): Promise<SendEmailResult> {
     try {
-      const htmlContent = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Technical Test for ${jobTitle}</h2>
-          <p>Dear ${candidateName},</p>
-          <p>You have been invited to complete a technical test as part of the interview process for the <strong>${jobTitle}</strong> position.</p>
-          <p><strong>Test Link:</strong> <a href="${testLink}">${testLink}</a></p>
-          <p><strong>Deadline:</strong> ${deadline}</p>
-          <p>Please complete the test by the deadline. If you have any questions, please reach out to our recruitment team.</p>
-          <p>Best regards,<br/>SnapHire Recruitment Team</p>
-        </div>
-      `;
+      console.log('[ATS Email Service] sendHiredEmail called with:', {
+        candidateEmail,
+        candidateName,
+        jobTitle,
+        hiredDataKeys: Object.keys(hiredData)
+      });
+
+      const htmlContent = generateHiredNotificationHTML({
+        candidateName,
+        jobTitle,
+        ...hiredData,
+      });
+
+      console.log('[ATS Email Service] Hired HTML built, length:', htmlContent.length);
 
       return await this.sendEmail({
         to: candidateEmail,
-        subject: `Technical Test - ${jobTitle}`,
+        subject: `Offer for ${jobTitle} at SnapHire`,
         html: htmlContent,
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('[ATS Email Service] Exception in sendTechnicalTestNotification:', errorMessage);
+      console.error('[ATS Email Service] Exception in sendHiredEmail:', errorMessage);
       return {
         success: false,
         error: errorMessage,
@@ -231,7 +326,7 @@ class ATSEmailService {
   }
 
   /**
-   * Send hired notification email
+   * Send hired notification email (legacy method, kept for backwards compatibility)
    * 
    * @param candidateEmail Email address of the candidate
    * @param candidateName Name of the candidate
@@ -243,26 +338,48 @@ class ATSEmailService {
     candidateName: string,
     jobTitle: string
   ): Promise<SendEmailResult> {
+    return this.sendHiredEmail(candidateEmail, candidateName, jobTitle);
+  }
+
+  /**
+   * Send rejection notification email
+   * 
+   * @param candidateEmail Email address of the candidate
+   * @param candidateName Name of the candidate
+   * @param jobTitle Title of the job position
+   * @param rejectionData Additional rejection details
+   * @returns SendEmailResult with success status
+   */
+  async sendRejectionEmail(
+    candidateEmail: string,
+    candidateName: string,
+    jobTitle: string,
+    rejectionData: Partial<RejectionNotificationData> = {}
+  ): Promise<SendEmailResult> {
     try {
-      const htmlContent = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #28a745;">Congratulations!</h2>
-          <p>Dear ${candidateName},</p>
-          <p>We are pleased to inform you that you have been selected for the <strong>${jobTitle}</strong> position at SnapHire.</p>
-          <p>Our HR team will contact you shortly with details regarding your onboarding and start date.</p>
-          <p>Thank you for your interest in joining our team!</p>
-          <p>Best regards,<br/>SnapHire Recruitment Team</p>
-        </div>
-      `;
+      console.log('[ATS Email Service] sendRejectionEmail called with:', {
+        candidateEmail,
+        candidateName,
+        jobTitle,
+        rejectionDataKeys: Object.keys(rejectionData)
+      });
+
+      const htmlContent = generateRejectionNotificationHTML({
+        candidateName,
+        jobTitle,
+        ...rejectionData,
+      });
+
+      console.log('[ATS Email Service] Rejection HTML built, length:', htmlContent.length);
 
       return await this.sendEmail({
         to: candidateEmail,
-        subject: `Congratulations! You're Hired - ${jobTitle}`,
+        subject: `Application Update - ${jobTitle} at SnapHire`,
         html: htmlContent,
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('[ATS Email Service] Exception in sendHiredNotification:', errorMessage);
+      console.error('[ATS Email Service] Exception in sendRejectionEmail:', errorMessage);
       return {
         success: false,
         error: errorMessage,
@@ -271,7 +388,7 @@ class ATSEmailService {
   }
 
   /**
-   * Send rejection notification email
+   * Send rejection notification email (legacy method, kept for backwards compatibility)
    * 
    * @param candidateEmail Email address of the candidate
    * @param candidateName Name of the candidate
@@ -283,26 +400,42 @@ class ATSEmailService {
     candidateName: string,
     jobTitle: string
   ): Promise<SendEmailResult> {
+    return this.sendRejectionEmail(candidateEmail, candidateName, jobTitle);
+  }
+
+  /**
+   * Send shortlisted notification email
+   */
+  async sendShortlistedEmail(
+    candidateEmail: string,
+    candidateName: string,
+    jobTitle: string,
+    shortlistedData: Partial<ShortlistedNotificationData> = {}
+  ): Promise<SendEmailResult> {
     try {
-      const htmlContent = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Application Status Update</h2>
-          <p>Dear ${candidateName},</p>
-          <p>Thank you for your interest in the <strong>${jobTitle}</strong> position at SnapHire.</p>
-          <p>After careful consideration, we have decided to move forward with other candidates whose qualifications more closely match our current needs.</p>
-          <p>We appreciate the time you invested in our interview process and encourage you to apply for future positions that match your skills and experience.</p>
-          <p>Best regards,<br/>SnapHire Recruitment Team</p>
-        </div>
-      `;
+      console.log('[ATS Email Service] sendShortlistedEmail called with:', {
+        candidateEmail,
+        candidateName,
+        jobTitle,
+        shortlistedDataKeys: Object.keys(shortlistedData)
+      });
+
+      const htmlContent = generateShortlistedNotificationHTML({
+        candidateName,
+        jobTitle,
+        ...shortlistedData,
+      });
+
+      console.log('[ATS Email Service] Shortlisted HTML built, length:', htmlContent.length);
 
       return await this.sendEmail({
         to: candidateEmail,
-        subject: `Application Update - ${jobTitle}`,
+        subject: `Application Update – ${jobTitle}` + ' at SnapHire',
         html: htmlContent,
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('[ATS Email Service] Exception in sendRejectionNotification:', errorMessage);
+      console.error('[ATS Email Service] Exception in sendShortlistedEmail:', errorMessage);
       return {
         success: false,
         error: errorMessage,
@@ -311,40 +444,15 @@ class ATSEmailService {
   }
 
   /**
-   * Build HTML content for interview invitation
+   * Legacy alias for shortlisted notification
    */
-  private buildInterviewInvitationHTML(
+  async sendShortlistedNotification(
+    candidateEmail: string,
     candidateName: string,
     jobTitle: string,
-    interviewDate: string,
-    interviewLocation: string,
-    confirmationLink: string
-  ): string {
-    return `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2>Interview Invitation</h2>
-        <p>Dear ${candidateName},</p>
-        <p>We are pleased to invite you for an interview for the <strong>${jobTitle}</strong> position at SnapHire.</p>
-        
-        <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
-          <p><strong>Interview Details:</strong></p>
-          <p><strong>Date & Time:</strong> ${interviewDate}</p>
-          <p><strong>Location:</strong> ${interviewLocation}</p>
-        </div>
-        
-        <p>Please confirm your attendance by clicking the button below:</p>
-        
-        <div style="text-align: center; margin: 20px 0;">
-          <a href="${confirmationLink}" style="background-color: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
-            Confirm Interview
-          </a>
-        </div>
-        
-        <p>If you are unable to attend or need to reschedule, please let us know as soon as possible.</p>
-        <p>We look forward to meeting you!</p>
-        <p>Best regards,<br/>SnapHire Recruitment Team</p>
-      </div>
-    `;
+    shortlistedData: Partial<ShortlistedNotificationData> = {}
+  ): Promise<SendEmailResult> {
+    return this.sendShortlistedEmail(candidateEmail, candidateName, jobTitle, shortlistedData);
   }
 
   /**

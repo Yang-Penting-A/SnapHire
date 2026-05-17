@@ -7,8 +7,8 @@ const SESSION_CONFIG = {
   // Max session duration: 4 hours (14400 seconds) - RECOMMENDED FOR HR/ADMIN
   MAX_SESSION_DURATION: parseInt(process.env.NEXT_PUBLIC_MAX_SESSION_DURATION || '14400', 10),
   
-  // Inactivity timeout: 15 minutes (900 seconds)
-  INACTIVITY_TIMEOUT: parseInt(process.env.NEXT_PUBLIC_INACTIVITY_TIMEOUT || '900', 10),
+  // Inactivity timeout: 8 hours (28800 seconds)
+  INACTIVITY_TIMEOUT: parseInt(process.env.NEXT_PUBLIC_INACTIVITY_TIMEOUT || '28800', 10),
   
   // Storage keys
   TOKEN_KEY: 'token',

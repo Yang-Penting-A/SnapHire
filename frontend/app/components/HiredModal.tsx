@@ -4,24 +4,24 @@ import React, { useEffect, useState } from "react";
 import { createPortal } from 'react-dom';
 import { X, Loader2 } from "lucide-react";
 
-interface InterviewModalProps {
+interface HiredModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (data: any) => Promise<void>;
 }
 
-export default function InterviewModal({
+export default function HiredModal({
   isOpen,
   onClose,
   onSubmit,
-}: InterviewModalProps) {
+}: HiredModalProps) {
   const [formData, setFormData] = useState({
-    interviewDate: "",
-    interviewTime: "",
-    interviewType: "Virtual",
-    interviewLocation: "",
-    interviewDuration: "45",
-    additionalInstructions: "",
+    jobTitle: "",
+    startDate: "",
+    salary: "",
+    department: "",
+    manager: "",
+    additionalMessage: "",
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -40,7 +40,7 @@ export default function InterviewModal({
   if (!isOpen) return null;
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     setFormData({
       ...formData,
@@ -51,12 +51,12 @@ export default function InterviewModal({
   const handleSubmit = async () => {
     try {
       setIsSubmitting(true);
-      console.log("[Interview Modal] Submitting interview data:", formData);
+      console.log("[Hired Modal] Submitting data:", formData);
       await onSubmit(formData);
       onClose();
     } catch (err) {
-      console.error("[Interview Modal] Submission error:", err);
-      alert("Gagal mengirim undangan interview");
+      console.error("[Hired Modal] Submission error:", err);
+      alert("Gagal mengirim penawaran pekerjaan");
     } finally {
       setIsSubmitting(false);
     }
@@ -70,10 +70,10 @@ export default function InterviewModal({
         <div className="flex items-center justify-between border-b border-stone-100 px-6 py-5 md:px-8 md:py-6 shrink-0 bg-white">
           <div>
             <h2 className="text-2xl sm:text-3xl font-black text-stone-900 tracking-tight uppercase">
-            Jadwalkan Interview
+              Penawaran Pekerjaan
             </h2>
             <p className="mt-1 text-[11px] font-medium text-stone-500">
-              Lengkapi detail interview sebelum mengirim undangan ke kandidat.
+              Lengkapi detail penawaran untuk dikirim ke kandidat yang diterima.
             </p>
           </div>
           <button
@@ -87,99 +87,93 @@ export default function InterviewModal({
 
         {/* Body - scrollable */}
         <div className="flex-1 space-y-6 overflow-y-auto px-6 py-5 md:px-8 md:py-6 custom-scrollbar bg-white">
-          {/* Interview Date */}
+          
+          {/* Job Title */}
           <div>
             <label className="block text-[10px] font-black text-stone-400 uppercase tracking-[0.22em] mb-2.5">
-              Tanggal Interview
-            </label>
-            <input
-              type="date"
-              name="interviewDate"
-              value={formData.interviewDate}
-              onChange={handleChange}
-              required
-              className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3.5 font-bold text-stone-700 placeholder-stone-400 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all shadow-sm"
-            />
-          </div>
-
-          {/* Interview Time */}
-          <div>
-            <label className="block text-[10px] font-black text-stone-400 uppercase tracking-[0.22em] mb-2.5">
-              Waktu Interview
-            </label>
-            <input
-              type="time"
-              name="interviewTime"
-              value={formData.interviewTime}
-              onChange={handleChange}
-              required
-              className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3.5 font-bold text-stone-700 placeholder-stone-400 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all shadow-sm"
-            />
-          </div>
-
-          {/* Interview Type */}
-          <div>
-            <label className="block text-[10px] font-black text-stone-400 uppercase tracking-[0.22em] mb-2.5">
-              Tipe Interview
-            </label>
-            <select
-              name="interviewType"
-              value={formData.interviewType}
-              onChange={handleChange}
-              className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3.5 font-bold text-stone-700 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all shadow-sm appearance-none cursor-pointer"
-            >
-              <option value="Virtual">Virtual (Google Meet / Zoom)</option>
-              <option value="In Person">In Person</option>
-              <option value="Phone">Phone Call</option>
-            </select>
-          </div>
-
-          {/* Location / Meeting Link */}
-          <div>
-            <label className="block text-[10px] font-black text-stone-400 uppercase tracking-[0.22em] mb-2.5">
-              Lokasi / Link Meeting
+              Posisi Pekerjaan
             </label>
             <input
               type="text"
-              name="interviewLocation"
-              value={formData.interviewLocation}
+              name="jobTitle"
+              value={formData.jobTitle}
               onChange={handleChange}
-              placeholder="lokasi atau link meeting online"
-              required
-              className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3.5 font-bold text-stone-700 placeholder-stone-400 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all shadow-sm"
+              placeholder="posisi atau jabatan yang ditawarkan"
+              className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3.5 font-bold text-stone-700 placeholder-stone-400 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all shadow-sm"
             />
           </div>
 
-          {/* Duration */}
+          {/* Start Date */}
           <div>
             <label className="block text-[10px] font-black text-stone-400 uppercase tracking-[0.22em] mb-2.5">
-              Durasi (menit)
+              Tanggal Mulai
             </label>
             <input
-              type="number"
-              name="interviewDuration"
-              value={formData.interviewDuration}
+              type="date"
+              name="startDate"
+              value={formData.startDate}
               onChange={handleChange}
-              placeholder="45"
-              min="15"
-              max="180"
-              required
-              className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3.5 font-bold text-stone-700 placeholder-stone-400 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all shadow-sm"
+              className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3.5 font-bold text-stone-700 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all shadow-sm"
             />
           </div>
 
-          {/* Additional Instructions */}
+          {/* Salary */}
           <div>
             <label className="block text-[10px] font-black text-stone-400 uppercase tracking-[0.22em] mb-2.5">
-              Instruksi Tambahan (Opsional)
+              Gaji (Opsional)
+            </label>
+            <input
+              type="text"
+              name="salary"
+              value={formData.salary}
+              onChange={handleChange}
+              placeholder="gaji atau rentang gaji yang ditawarkan"
+              className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3.5 font-bold text-stone-700 placeholder-stone-400 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all shadow-sm"
+            />
+          </div>
+
+          {/* Department */}
+          <div>
+            <label className="block text-[10px] font-black text-stone-400 uppercase tracking-[0.22em] mb-2.5">
+              Departemen (Opsional)
+            </label>
+            <input
+              type="text"
+              name="department"
+              value={formData.department}
+              onChange={handleChange}
+              placeholder="departemen atau divisi"
+              className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3.5 font-bold text-stone-700 placeholder-stone-400 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all shadow-sm"
+            />
+          </div>
+
+          {/* Manager */}
+          <div>
+            <label className="block text-[10px] font-black text-stone-400 uppercase tracking-[0.22em] mb-2.5">
+              Nama Manager (Opsional)
+            </label>
+            <input
+              type="text"
+              name="manager"
+              value={formData.manager}
+              onChange={handleChange}
+              placeholder="Nama manager atau lead yang akan mengawasi"
+              className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3.5 font-bold text-stone-700 placeholder-stone-400 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all shadow-sm"
+            />
+          </div>
+
+          {/* Additional Message */}
+          <div>
+            <label className="block text-[10px] font-black text-stone-400 uppercase tracking-[0.22em] mb-2.5">
+              Pesan Tambahan (Opsional)
             </label>
             <textarea
-              name="additionalInstructions"
-              value={formData.additionalInstructions}
+              name="additionalMessage"
+              value={formData.additionalMessage}
               onChange={handleChange}
-              placeholder="Tambahkan instruksi tambahan untuk kandidat jika diperlukan."
-              rows={4}
-              className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3.5 font-bold text-stone-700 placeholder-stone-400 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all shadow-sm resize-none"
+              placeholder="Tambahkan pesan personal atau informasi onboarding khusus untuk kandidat..."
+              rows={5}
+              className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3.5 font-bold text-stone-700 placeholder-stone-400 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all shadow-sm resize-none"
             />
           </div>
         </div>
@@ -196,8 +190,8 @@ export default function InterviewModal({
 
           <button
             onClick={handleSubmit}
-            disabled={isSubmitting || !formData.interviewDate || !formData.interviewTime || !formData.interviewLocation}
-            className="px-6 py-3 rounded-2xl font-black text-[11px] uppercase tracking-widest text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2"
+            disabled={isSubmitting}
+            className="px-6 py-3 rounded-2xl font-black text-[11px] uppercase tracking-widest text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2"
           >
             {isSubmitting ? (
               <>
@@ -205,7 +199,7 @@ export default function InterviewModal({
                 Mengirim...
               </>
             ) : (
-              "Kirim Undangan"
+              "Kirim Penawaran"
             )}
           </button>
         </div>

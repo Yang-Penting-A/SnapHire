@@ -2,6 +2,10 @@
 
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import InterviewModal from '@/app/components/InterviewModal';
+import TechnicalTestModal from '@/app/components/TechnicalTestModal';
+import HiredModal from '@/app/components/HiredModal';
+import RejectedConfirmModal from '@/app/components/RejectedConfirmModal';
+import ShortlistedConfirmModal from '@/app/components/ShortlistedConfirmModal';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/app/lib/supabase';
 import ConfirmRescanModal from "@/app/components/ConfirmRescanModal";
@@ -44,7 +48,7 @@ function ListPelamarContent() {
       let query = supabase
         .from('applications')
         .select(`
-          application_id, status_application, ai_score,
+          application_id, status_application, ai_score, confirmation_status,
           candidates!inner ( name ),
           jobs!inner ( job_id, title )
         `);
@@ -94,11 +98,57 @@ function ListPelamarContent() {
 
   const [showInterviewModal, setShowInterviewModal] = useState(false);
   const [modalApplicationId, setModalApplicationId] = useState<string | null>(null);
+  const [selectedCandidateEmail, setSelectedCandidateEmail] = useState<string | null>(null);
+  const [selectedCandidateName, setSelectedCandidateName] = useState<string | null>(null);
+
+  // Technical Test Modal State
+  const [showTechnicalTestModal, setShowTechnicalTestModal] = useState(false);
+  const [technicalTestApplicationId, setTechnicalTestApplicationId] = useState<string | null>(null);
+
+  // Hired Modal State
+  const [showHiredModal, setShowHiredModal] = useState(false);
+  const [hiredApplicationId, setHiredApplicationId] = useState<string | null>(null);
+
+  // Rejected Confirm Modal State
+  const [showRejectedModal, setShowRejectedModal] = useState(false);
+  const [rejectedApplicationId, setRejectedApplicationId] = useState<string | null>(null);
+
+  // Shortlisted Confirm Modal State
+  const [showShortlistedModal, setShowShortlistedModal] = useState(false);
+  const [shortlistedApplicationId, setShortlistedApplicationId] = useState<string | null>(null);
 
   const openInterviewModal = (applicationId: string) => {
     console.log('Interview modal opened');
     setModalApplicationId(applicationId);
     setShowInterviewModal(true);
+  };
+
+  const openTechnicalTestModal = (applicationId: string, candidateName: string) => {
+    console.log('Technical Test modal opened');
+    setTechnicalTestApplicationId(applicationId);
+    setSelectedCandidateName(candidateName);
+    setShowTechnicalTestModal(true);
+  };
+
+  const openHiredModal = (applicationId: string, candidateName: string) => {
+    console.log('Hired modal opened');
+    setHiredApplicationId(applicationId);
+    setSelectedCandidateName(candidateName);
+    setShowHiredModal(true);
+  };
+
+  const openRejectedModal = (applicationId: string, candidateName: string) => {
+    console.log('Rejected confirm modal opened');
+    setRejectedApplicationId(applicationId);
+    setSelectedCandidateName(candidateName);
+    setShowRejectedModal(true);
+  };
+
+  const openShortlistedModal = (applicationId: string, candidateName: string) => {
+    console.log('Shortlisted confirm modal opened');
+    setShortlistedApplicationId(applicationId);
+    setSelectedCandidateName(candidateName);
+    setShowShortlistedModal(true);
   };
 
   const updateStatus = async (applicationId: string, newStatus: string, interviewData?: any) => {
@@ -113,7 +163,7 @@ function ListPelamarContent() {
       if (error) throw error;
       
       // Trigger ATS email automation if applicable
-      if (['Interview', 'Technical Test', 'Hired', 'Rejected'].includes(newStatus)) {
+      if (['Interview', 'Technical Test', 'Hired', 'Rejected', 'Shortlisted'].includes(newStatus)) {
         triggerAtsAutomation(applicationId, newStatus, interviewData).catch(err =>
           console.error('[ATS AUTOMATION] Error:', err)
         );
@@ -211,6 +261,19 @@ function ListPelamarContent() {
     }
   };
 
+  const getConfirmationStatusBadge = (confirmationStatus: string) => {
+    switch (confirmationStatus?.toUpperCase()) {
+      case 'CONFIRMED':
+        return { text: '✓ Confirmed', class: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+      case 'DECLINED':
+        return { text: '✗ Declined', class: 'bg-rose-50 text-rose-700 border-rose-200' };
+      case 'PENDING':
+        return { text: '⏱ Pending', class: 'bg-amber-50 text-amber-700 border-amber-200' };
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className="flex flex-col h-[calc(100vh-6rem)] max-w-7xl mx-auto px-4 pb-6 animate-in fade-in duration-700">
       {/* FIXED HEADER & FILTERS */}
@@ -232,6 +295,64 @@ function ListPelamarContent() {
               }
               setShowInterviewModal(false);
               setModalApplicationId(null);
+            }}
+          />
+
+          {/* Technical Test Modal */}
+          <TechnicalTestModal
+            isOpen={showTechnicalTestModal}
+            onClose={() => { setShowTechnicalTestModal(false); setTechnicalTestApplicationId(null); }}
+            onSubmit={async (testData) => {
+              console.log('[LIST] Technical Test modal submitted:', testData);
+              if (technicalTestApplicationId) {
+                await updateStatus(technicalTestApplicationId, 'Technical Test', testData);
+              }
+              setShowTechnicalTestModal(false);
+              setTechnicalTestApplicationId(null);
+            }}
+          />
+
+          {/* Hired Modal */}
+          <HiredModal
+            isOpen={showHiredModal}
+            onClose={() => { setShowHiredModal(false); setHiredApplicationId(null); }}
+            onSubmit={async (hiredData) => {
+              console.log('[LIST] Hired modal submitted:', hiredData);
+              if (hiredApplicationId) {
+                await updateStatus(hiredApplicationId, 'Hired', hiredData);
+              }
+              setShowHiredModal(false);
+              setHiredApplicationId(null);
+            }}
+          />
+
+          {/* Rejected Confirm Modal */}
+          <RejectedConfirmModal
+            isOpen={showRejectedModal}
+            candidateName={selectedCandidateName || 'Kandidat'}
+            onClose={() => { setShowRejectedModal(false); setRejectedApplicationId(null); }}
+            onConfirm={async () => {
+              console.log('[LIST] Rejection confirmed for application:', rejectedApplicationId);
+              if (rejectedApplicationId) {
+                await updateStatus(rejectedApplicationId, 'Rejected');
+              }
+              setShowRejectedModal(false);
+              setRejectedApplicationId(null);
+            }}
+          />
+
+          {/* Shortlisted Confirm Modal */}
+          <ShortlistedConfirmModal
+            isOpen={showShortlistedModal}
+            candidateName={selectedCandidateName || 'Kandidat'}
+            onClose={() => { setShowShortlistedModal(false); setShortlistedApplicationId(null); }}
+            onConfirm={async (additionalMessage) => {
+              console.log('[LIST] Shortlisted confirmed for application:', shortlistedApplicationId, additionalMessage);
+              if (shortlistedApplicationId) {
+                await updateStatus(shortlistedApplicationId, 'Shortlisted', { additionalMessage });
+              }
+              setShowShortlistedModal(false);
+              setShortlistedApplicationId(null);
             }}
           />
 
@@ -374,17 +495,46 @@ function ListPelamarContent() {
                             onChange={(e) => {
                               const value = (e.target.value || '').toString();
                               console.log('[LIST] status changed for', app.application_id, 'to', value);
+                              
+                              // Handle Interview status
                               if (value.trim().toLowerCase() === 'interview') {
                                 openInterviewModal(app.application_id);
                                 return;
                               }
 
+                              // Handle Technical Test status
+                              if (value.trim().toLowerCase() === 'technical test') {
+                                openTechnicalTestModal(app.application_id, candidateName);
+                                return;
+                              }
+
+                                                      // Handle Hired status
+                              if (value.trim().toLowerCase() === 'hired') {
+                                openHiredModal(app.application_id, candidateName);
+                                return;
+                              }
+
+                                                      // Handle Rejected status
+                              if (value.trim().toLowerCase() === 'rejected') {
+                                openRejectedModal(app.application_id, candidateName);
+                                return;
+                              }
+
+                                                      // Handle Shortlisted status
+                                                      if (value.trim().toLowerCase() === 'shortlisted') {
+                                                        openShortlistedModal(app.application_id, candidateName);
+                                                        return;
+                                                      }
+
+                              // For other statuses, update directly
                               updateStatus(app.application_id, value);
                             }}
                             className={`w-full text-[9px] font-black uppercase tracking-widest px-3 py-2.5 rounded-lg border outline-none cursor-pointer appearance-none text-center transition-all shadow-sm ${getStatusBadgeColor(currentStatus)}`}
                           >
                             {MASTER_STATUSES.map(s => <option key={s} value={s} className="bg-white text-stone-700">{s}</option>)}
                           </select>
+                          
+                          {/* Confirmation status intentionally not shown in list view to keep UI clean */}
                         </div>
                       </td>
 

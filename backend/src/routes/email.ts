@@ -7,42 +7,23 @@ import { AuthRequest } from '../types';
 
 const router = Router();
 
-// Send interview invitation
+// Send interview invitation (simplified - no token)
 router.post(
   '/send-interview-invitation',
   onlyHROrAdmin,
   async (req: AuthRequest, res: Response) => {
     try {
-      const { candidateId, candidateEmail, candidateName, jobTitle, interviewDate, interviewLocation } = req.body;
+      const { applicationId, candidateId, candidateEmail, candidateName, jobTitle, interviewDate, interviewLocation } = req.body;
 
       // Validate input
-      if (!candidateEmail || !candidateName || !jobTitle || !interviewDate || !interviewLocation) {
+      if (!applicationId || !candidateEmail || !candidateName || !jobTitle || !interviewDate || !interviewLocation) {
         return res.status(400).json({
           success: false,
-          error: 'Missing required fields: candidateEmail, candidateName, jobTitle, interviewDate, interviewLocation'
+          error: 'Missing required fields: applicationId, candidateEmail, candidateName, jobTitle, interviewDate, interviewLocation'
         });
       }
 
-      // Generate confirmation token
-      const confirmationToken = `interview_${candidateId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-      // Save token to database
-      const tokenResult = await supabaseService.insert('confirmation_tokens', {
-        candidate_id: candidateId,
-        token: confirmationToken,
-        token_type: 'interview_confirmation',
-        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
-      });
-
-      if (!tokenResult.success) {
-        console.error('[EMAIL] Failed to save confirmation token:', tokenResult.message);
-        return res.status(500).json({
-          success: false,
-          error: 'Failed to save confirmation token'
-        });
-      }
-
-      // Send email
+      // Send email with simplified direct response link (no token)
       const emailService = new ATSEmailService();
       const result = await emailService.sendInterviewInvitation(
         candidateEmail,
@@ -50,7 +31,7 @@ router.post(
         jobTitle,
         interviewDate,
         interviewLocation,
-        confirmationToken
+        applicationId
       );
 
       if (!result.success) {
@@ -62,15 +43,17 @@ router.post(
         });
       }
 
-      // Update candidate status
-      const statusResult = await supabaseService.update('candidates',
-        { status: 'interview_invited', updated_at: new Date() },
-        'candidate_id',
-        candidateId
-      );
+      // Update candidate status if needed
+      if (candidateId) {
+        const statusResult = await supabaseService.update('candidates',
+          { status: 'interview_invited', updated_at: new Date() },
+          'candidate_id',
+          candidateId
+        );
 
-      if (!statusResult.success) {
-        console.warn('[EMAIL] Failed to update candidate status:', statusResult.message);
+        if (!statusResult.success) {
+          console.warn('[EMAIL] Failed to update candidate status:', statusResult.message);
+        }
       }
 
       res.json({
@@ -235,61 +218,54 @@ router.post(
   }
 );
 
-// Confirm interview
+// Confirm interview (simplified - use applicationId instead of token)
 router.post(
   '/confirm-interview',
   async (req: Request, res: Response) => {
     try {
-      const { token } = req.body;
+      const { applicationId } = req.body;
 
-      if (!token) {
+      if (!applicationId) {
         return res.status(400).json({
           success: false,
-          error: 'Missing confirmation token'
+          error: 'Missing applicationId'
         });
       }
 
-      // Get token from database
-      const tokenResult = await supabaseService.select('confirmation_tokens', { token });
+      // Lookup application
+      const appRes = await supabaseService.select('applications', { application_id: applicationId });
 
-      if (!tokenResult.success || !tokenResult.data || tokenResult.data.length === 0) {
+      if (!appRes.success || !appRes.data || appRes.data.length === 0) {
         return res.status(404).json({
           success: false,
-          error: 'Invalid or expired confirmation token'
+          error: 'Application not found'
         });
       }
 
-      const confirmationToken = tokenResult.data[0];
+      const application = appRes.data[0];
 
-      // Check if token is expired
-      if (confirmationToken.expires_at && new Date(confirmationToken.expires_at) < new Date()) {
+      // Check if already confirmed or declined
+      if (application.confirmation_status && ['CONFIRMED', 'DECLINED'].includes(application.confirmation_status.toUpperCase())) {
         return res.status(400).json({
           success: false,
-          error: 'Confirmation token has expired'
+          error: 'Interview response already recorded'
         });
       }
 
-      // Check if already used
-      if (confirmationToken.used_at) {
-        return res.status(400).json({
-          success: false,
-          error: 'Confirmation token already used'
-        });
+      // Update applications and candidate
+      await supabaseService.update('applications',
+        { confirmation_status: 'CONFIRMED', confirmed_at: new Date() },
+        'application_id',
+        applicationId
+      );
+
+      if (application.candidate_id) {
+        await supabaseService.update('candidates',
+          { interview_confirmed_at: new Date() },
+          'candidate_id',
+          application.candidate_id
+        );
       }
-
-      // Mark token as used
-      await supabaseService.update('confirmation_tokens',
-        { used_at: new Date() },
-        'token',
-        token
-      );
-
-      // Update candidate confirmation status
-      await supabaseService.update('candidates',
-        { interview_confirmed_at: new Date() },
-        'candidate_id',
-        confirmationToken.candidate_id
-      );
 
       res.json({
         success: true,

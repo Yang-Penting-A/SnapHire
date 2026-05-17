@@ -3,8 +3,6 @@ import { supabaseService } from '../services/supabase';
 import { onlyHROrAdmin } from '../middleware/roleMiddleware';
 import { AuthRequest } from '../types';
 import ATSEmailService from '../services/email/sendEmail';
-import { generateInterviewInvitationHTML } from '../services/email/templates';
-import crypto from 'crypto';
 
 const router = Router();
 
@@ -193,35 +191,37 @@ async function handleInterviewAutomation(
   interviewDetails?: { interviewDate?: string; interviewLocation?: string }
 ) {
   try {
-    // Generate server-side token
-    const confirmationToken = crypto.randomUUID();
-
     // Use provided interview details or defaults
     const interviewDate = interviewDetails?.interviewDate || 'To be scheduled';
     const interviewLocation = interviewDetails?.interviewLocation || 'TBD - Check email for details';
 
-    // Save confirmation token
-    const tokenResult = await supabaseService.insert('confirmation_tokens', {
-      application_id: applicationId,
-      token: confirmationToken,
-      token_type: 'interview_confirmation',
-      confirmation_status: 'PENDING',
-      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-    });
+    // Update applications table with confirmation_status=PENDING (simplified, no token)
+    const appUpdateResult = await supabaseService.update(
+      'applications',
+      {
+        confirmation_status: 'PENDING',
+        interview_date: interviewDate,
+        interview_location: interviewLocation
+      },
+      'application_id',
+      applicationId
+    );
 
-    if (!tokenResult.success) {
-      console.error('[INTERVIEW AUTOMATION] Failed to save token:', tokenResult.message);
+    if (!appUpdateResult.success) {
+      console.error('[INTERVIEW AUTOMATION] Failed to update applications table:', appUpdateResult.message);
       return;
     }
 
-    // Send interview invitation email
+    console.log('[INTERVIEW AUTOMATION] Applications table updated with confirmation_status=PENDING');
+
+    // Send interview invitation email with direct response link (no token needed)
     const emailResult = await emailService.sendInterviewInvitation(
       candidate.email,
       candidate.name,
       job.title,
       interviewDate,
       interviewLocation,
-      confirmationToken
+      applicationId
     );
 
     if (!emailResult.success) {

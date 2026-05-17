@@ -25,7 +25,8 @@ export default function HRDashboard() {
     avgAiScore: 0,
     offerRate: 0,
     timeToHire: 14,
-    rejectedCount: 0
+    rejectedCount: 0,
+    weeklyCandidates: 0
   });
 
   // Data Lists State
@@ -44,6 +45,8 @@ export default function HRDashboard() {
 
     try {
       const todayStr = new Date().toISOString().split('T')[0];
+      const lastWeekDate = new Date();
+      lastWeekDate.setDate(lastWeekDate.getDate() - 7);
 
       // 1. FETCH DATA (Ambil semua jobs tanpa filter status 'active' saja untuk analisis)
       const [kandidatRes, jobsRes, appsRes] = await Promise.all([
@@ -99,6 +102,10 @@ export default function HRDashboard() {
         .map(j => ({ name: j.title, count: (j.applications as any)[0]?.count || 0 }))
         .sort((a, b) => b.count - a.count).slice(0, 5);
 
+      const weeklyCandidates = allApps.filter(app => {
+        return new Date(app.created_at) >= lastWeekDate;
+      }).length;
+
       setStats({
         totalCandidates: kandidatRes.count || 0,
         activeJobs: trulyActiveJobsCount,
@@ -107,7 +114,8 @@ export default function HRDashboard() {
         avgAiScore: avgScore,
         offerRate: Math.round((hiredCount / Math.max(1, allApps.length)) * 100),
         timeToHire: 14,
-        rejectedCount: rejected
+        rejectedCount: rejected,
+        weeklyCandidates
       });
 
       setPipeline(pipelineMapped);
@@ -193,7 +201,7 @@ export default function HRDashboard() {
         <div className="space-y-5">
           <h2 className="text-[11px] font-black text-stone-400 uppercase tracking-[0.3em] ml-1">Ringkasan Hari Ini</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-            <StatCard label="Total Pelamar" value={stats.totalCandidates} sub={`+${Math.floor(stats.totalCandidates * 0.1)} minggu ini`} color="blue" />
+            <StatCard label="Total Pelamar" value={stats.totalCandidates} sub={`+${stats.weeklyCandidates} minggu ini`} color="blue" />
             <StatCard label="Lowongan Aktif" value={stats.activeJobs} sub="Posisi sedang dibuka" color="emerald" />
             <StatCard label="CV Diproses AI" value={stats.aiProcessed} sub={`${Math.round((stats.aiProcessed/Math.max(1, stats.totalCandidates))*100)}% dari total`} color="orange" />
             <StatCard label="Jadwal Interview" value={stats.interviewsToday} sub="Kandidat terpilih" color="purple" />

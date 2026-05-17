@@ -188,7 +188,7 @@ export default function AdminUserManagement() {
                     type="text" required value={formData.fullName} 
                     onChange={(e) => setFormData({...formData, fullName: e.target.value})}
                     className="w-full pl-14 pr-6 py-4 bg-stone-50 border-none rounded-2xl text-stone-900 font-bold focus:ring-4 focus:ring-blue-600/10 transition-all outline-none"
-                    placeholder="Contoh: HR Manager snapHire"
+                    placeholder="nama lengkap"
                   />
                 </div>
               </div>
