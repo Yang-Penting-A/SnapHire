@@ -7,10 +7,28 @@ interface JobMatchResult {
   error?: string;
 }
 
-// Parse job position from email subject: [Position Name] - Candidate Name
-export const extractPositionFromSubject = (subject: string): string | null => {
-  const match = subject.match(/\[([^\]]+)\]/);
-  return match ? match[1].trim() : null;
+// Parse job position from email subject
+export const extractPositionFromSubject = (
+  subject: string
+): string | null => {
+
+  if (!subject) return null;
+
+  // Support old format: [Frontend Engineer] - Candidate Name
+  const bracketMatch = subject.match(/\[([^\]]+)\]/);
+
+  if (bracketMatch) {
+    return bracketMatch[1].trim();
+  }
+
+  // Support new format: Frontend Engineer - Candidate Name
+  const dashSplit = subject.split(' - ');
+
+  if (dashSplit.length > 0) {
+    return dashSplit[0].trim();
+  }
+
+  return null;
 };
 
 // Find matching job in database by position name

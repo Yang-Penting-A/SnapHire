@@ -216,11 +216,25 @@ export default function AuthCallbackPage() {
 
   if (isProcessing) {
     return (
-      <div className="min-h-screen bg-[#F4F7FE] flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-blue-600/20 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-stone-600 font-medium">Processing login...</p>
-          <p className="text-stone-500 text-sm mt-2">Tunggu sebentar...</p>
+      <div className="min-h-screen bg-[#F4F7FE] flex items-center justify-center px-6">
+        <div className="w-full max-w-md rounded-[2.5rem] bg-white border border-stone-100 shadow-[0_8px_30px_rgb(0,0,0,0.08)] px-8 py-10 text-center">
+
+          {/* Spinner */}
+          <div className="flex justify-center mb-6">
+            <div className="w-16 h-16 rounded-3xl bg-blue-50 flex items-center justify-center shadow-sm">
+              <div className="w-12 h-12 border-4 border-blue-600/20 border-t-blue-600 rounded-full animate-spin"></div>
+            </div>
+          </div>
+
+          {/* Heading */}
+          <h1 className="text-3xl font-black uppercase tracking-tight text-stone-900">
+            Signing You In
+          </h1>
+
+          {/* Description */}
+          <p className="mt-3 text-sm leading-relaxed text-stone-500 font-medium">
+            Preparing your SnapHire workspace...
+          </p>
         </div>
       </div>
     );

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/app/lib/supabase';
 import { 
@@ -25,7 +25,8 @@ export default function HRDashboard() {
     avgAiScore: 0,
     offerRate: 0,
     timeToHire: 14,
-    rejectedCount: 0
+    rejectedCount: 0,
+    weeklyCandidates: 0
   });
 
   // Data Lists State
@@ -35,89 +36,129 @@ export default function HRDashboard() {
   const [recentCandidates, setRecentCandidates] = useState<any[]>([]);
   const [activeJobsList, setActiveJobsList] = useState<any[]>([]);
   const [interviewSchedule, setInterviewSchedule] = useState<any[]>([]);
+  const lastRealtimeRefreshRef = useRef(0);
+
+  const fetchDashboardData = useCallback(async (isBackgroundRefresh = false) => {
+    if (!isBackgroundRefresh) {
+      setIsLoading(true);
+    }
+
+    try {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const lastWeekDate = new Date();
+      lastWeekDate.setDate(lastWeekDate.getDate() - 7);
+
+      // 1. FETCH DATA (Ambil semua jobs tanpa filter status 'active' saja untuk analisis)
+      const [kandidatRes, jobsRes, appsRes] = await Promise.all([
+        supabase.from('candidates').select('*', { count: 'exact', head: true }),
+        supabase.from('jobs').select('job_id, title, status_job, due_date, created_at, applications(count)'),
+        supabase.from('applications').select(`
+          application_id, status_application, ai_score, created_at,
+          candidates(name), jobs(title)
+        `)
+      ]);
+
+      const allApps = appsRes.data || [];
+      const allJobs = jobsRes.data || [];
+
+      // 2. CALCULATE KPI STATS
+      // Filter untuk angka kartu (yang benar-benar aktif)
+      const trulyActiveJobsCount = allJobs.filter(j => j.status_job === 'active' && (!j.due_date || j.due_date >= todayStr)).length;
+      
+      const scores = allApps.map(a => a.ai_score).filter(s => s !== null) as number[];
+      const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+      const rejected = allApps.filter(a => a.status_application?.toLowerCase() === 'rejected').length;
+      const hiredCount = allApps.filter(a => a.status_application?.toLowerCase() === 'hired').length;
+      const todayInterviews = allApps.filter(a => a.status_application?.toLowerCase() === 'interview');
+
+      // 3. RECRUITMENT PIPELINE
+      const stages = [
+        { label: 'Review', key: 'Review AI', color: '#bcbec1' },
+        { label: 'Screening', key: 'Shortlisted', color: '#60A5FA' },
+        { label: 'Interview', key: 'Interview', color: '#8b5cf6' },
+        { label: 'Technical Test', key: 'Technical Test', color: '#f59e0b' },
+        { label: 'Hired', key: 'Hired', color: '#10b981' },
+        { label: 'Rejected', key: 'Rejected', color: '#ef4444' }
+      ];
+      
+      const pipelineMapped = stages.map(s => ({
+        name: s.label,
+        count: allApps.filter(a => a.status_application?.toLowerCase() === s.key.toLowerCase()).length,
+        color: s.color
+      }));
+
+      // 4. TREND PELAMAR (Last 7 Days)
+      const last7Days = [...Array(7)].map((_, i) => {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        const dateStr = d.toISOString().split('T')[0];
+        return {
+          date: d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
+          count: allApps.filter(a => a.created_at.startsWith(dateStr)).length,
+        };
+      }).reverse();
+
+      // ANALISIS: Gunakan allJobs (Active + Expired)
+      const sortedPositions = [...allJobs]
+        .map(j => ({ name: j.title, count: (j.applications as any)[0]?.count || 0 }))
+        .sort((a, b) => b.count - a.count).slice(0, 5);
+
+      const weeklyCandidates = allApps.filter(app => {
+        return new Date(app.created_at) >= lastWeekDate;
+      }).length;
+
+      setStats({
+        totalCandidates: kandidatRes.count || 0,
+        activeJobs: trulyActiveJobsCount,
+        aiProcessed: scores.length,
+        interviewsToday: todayInterviews.length,
+        avgAiScore: avgScore,
+        offerRate: Math.round((hiredCount / Math.max(1, allApps.length)) * 100),
+        timeToHire: 14,
+        rejectedCount: rejected,
+        weeklyCandidates
+      });
+
+      setPipeline(pipelineMapped);
+      setTrendData(last7Days);
+      setTopPositions(sortedPositions);
+      setRecentCandidates(allApps.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 5));
+      setActiveJobsList(allJobs.slice(0, 5));
+      setInterviewSchedule(todayInterviews.slice(0, 4));
+
+    } catch (err) {
+      console.error("Dashboard Sync Error:", err);
+    } finally {
+      if (!isBackgroundRefresh) {
+        setIsLoading(false);
+      }
+    }
+  }, []);
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      setIsLoading(true);
-      try {
-        const todayStr = new Date().toISOString().split('T')[0];
-
-        // 1. FETCH DATA (Ambil semua jobs tanpa filter status 'active' saja untuk analisis)
-        const [kandidatRes, jobsRes, appsRes] = await Promise.all([
-          supabase.from('candidates').select('*', { count: 'exact', head: true }),
-          supabase.from('jobs').select('job_id, title, status_job, due_date, created_at, applications(count)'),
-          supabase.from('applications').select(`
-            application_id, status_application, ai_score, created_at, 
-            candidates(name), jobs(title)
-          `)
-        ]);
-
-        const allApps = appsRes.data || [];
-        const allJobs = jobsRes.data || [];
-
-        // 2. CALCULATE KPI STATS
-        // Filter untuk angka kartu (yang benar-benar aktif)
-        const trulyActiveJobsCount = allJobs.filter(j => j.status_job === 'active' && (!j.due_date || j.due_date >= todayStr)).length;
-        
-        const scores = allApps.map(a => a.ai_score).filter(s => s !== null) as number[];
-        const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
-        const rejected = allApps.filter(a => a.status_application?.toLowerCase() === 'rejected').length;
-        const hiredCount = allApps.filter(a => a.status_application?.toLowerCase() === 'hired').length;
-        const todayInterviews = allApps.filter(a => a.status_application?.toLowerCase() === 'interview');
-
-        // 3. RECRUITMENT PIPELINE
-        const stages = [
-          { label: 'Review', key: 'Review AI', color: '#bcbec1' },
-          { label: 'Screening', key: 'Shortlisted', color: '#60A5FA' },
-          { label: 'Interview', key: 'Interview', color: '#8b5cf6' },
-          { label: 'Technical Test', key: 'Technical Test', color: '#f59e0b' },
-          { label: 'Hired', key: 'Hired', color: '#10b981' },
-          { label: 'Rejected', key: 'Rejected', color: '#ef4444' }
-        ];
-        
-        const pipelineMapped = stages.map(s => ({
-          name: s.label,
-          count: allApps.filter(a => a.status_application?.toLowerCase() === s.key.toLowerCase()).length,
-          color: s.color
-        }));
-
-        // 4. TREND PELAMAR (Last 7 Days)
-        const last7Days = [...Array(7)].map((_, i) => {
-          const d = new Date(); d.setDate(d.getDate() - i);
-          const dateStr = d.toISOString().split('T')[0];
-          return {
-            date: d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
-            count: allApps.filter(a => a.created_at.startsWith(dateStr)).length,
-          };
-        }).reverse();
-
-        // ANALISIS: Gunakan allJobs (Active + Expired)
-        const sortedPositions = [...allJobs]
-          .map(j => ({ name: j.title, count: (j.applications as any)[0]?.count || 0 }))
-          .sort((a, b) => b.count - a.count).slice(0, 5);
-
-        setStats({
-          totalCandidates: kandidatRes.count || 0,
-          activeJobs: trulyActiveJobsCount,
-          aiProcessed: scores.length,
-          interviewsToday: todayInterviews.length,
-          avgAiScore: avgScore,
-          offerRate: Math.round((hiredCount / Math.max(1, allApps.length)) * 100),
-          timeToHire: 14,
-          rejectedCount: rejected
-        });
-
-        setPipeline(pipelineMapped);
-        setTrendData(last7Days);
-        setTopPositions(sortedPositions);
-        setRecentCandidates(allApps.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 5));
-        setActiveJobsList(allJobs.slice(0, 5));
-        setInterviewSchedule(todayInterviews.slice(0, 4));
-
-      } catch (err) { console.error("Dashboard Sync Error:", err); } finally { setIsLoading(false); }
-    };
     fetchDashboardData();
-  }, []);
+  }, [fetchDashboardData]);
+
+  useEffect(() => {
+    const handleRealtimeApplicant = (event: Event) => {
+      const now = Date.now();
+      if (now - lastRealtimeRefreshRef.current < 300) {
+        return;
+      }
+
+      lastRealtimeRefreshRef.current = now;
+      console.log('Dashboard refresh triggered from realtime event');
+      console.log(event.type);
+      fetchDashboardData(true);
+    };
+
+    window.addEventListener('snaphire:new-applicant', handleRealtimeApplicant);
+    window.addEventListener('snaphire:hr-applicant-updated', handleRealtimeApplicant);
+
+    return () => {
+      window.removeEventListener('snaphire:new-applicant', handleRealtimeApplicant);
+      window.removeEventListener('snaphire:hr-applicant-updated', handleRealtimeApplicant);
+    };
+  }, [fetchDashboardData]);
 
   const today = new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -160,7 +201,7 @@ export default function HRDashboard() {
         <div className="space-y-5">
           <h2 className="text-[11px] font-black text-stone-400 uppercase tracking-[0.3em] ml-1">Ringkasan Hari Ini</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-            <StatCard label="Total Pelamar" value={stats.totalCandidates} sub={`+${Math.floor(stats.totalCandidates * 0.1)} minggu ini`} color="blue" />
+            <StatCard label="Total Pelamar" value={stats.totalCandidates} sub={`+${stats.weeklyCandidates} minggu ini`} color="blue" />
             <StatCard label="Lowongan Aktif" value={stats.activeJobs} sub="Posisi sedang dibuka" color="emerald" />
             <StatCard label="CV Diproses AI" value={stats.aiProcessed} sub={`${Math.round((stats.aiProcessed/Math.max(1, stats.totalCandidates))*100)}% dari total`} color="orange" />
             <StatCard label="Jadwal Interview" value={stats.interviewsToday} sub="Kandidat terpilih" color="purple" />

@@ -5,9 +5,21 @@ import { authMiddleware } from '../middleware/authMiddleware';
 import { requireRole, onlyAdmin, onlyHR, onlyHROrAdmin } from '../middleware/roleMiddleware';
 import { AuthRequest, ApiResponse } from '../types';
 import cvRouter from './cv';
+import emailRouter from './email';
+import atsAutomationRouter from './atsAutomation';
+import interviewsRouter from './interviews';
 
 const router = Router();
-router.use('/cv', cvRouter);
+
+// Protected routes requiring authentication
+router.use('/cv', authMiddleware, cvRouter);
+router.use('/email', authMiddleware, emailRouter);
+
+// ATS automation trigger - no auth required (triggered after status update)
+router.use('/applications', atsAutomationRouter);
+
+// Public interview confirmation endpoint (token confirmation)
+router.use('/interviews', interviewsRouter);
 
 router.post(
   '/login',

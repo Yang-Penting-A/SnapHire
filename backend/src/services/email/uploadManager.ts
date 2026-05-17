@@ -17,6 +17,15 @@ class CVUploadManager {
       console.log(`[BUFFER-UPLOAD] Starting CV processing from buffer`);
       console.log(`[BUFFER-UPLOAD] File: ${filename} (${cvBuffer.length} bytes)`);
 
+      const internalApiKey = process.env.INTERNAL_API_KEY;
+      if (!internalApiKey) {
+        console.error('[BUFFER-UPLOAD] INTERNAL_API_KEY is not configured');
+        return {
+          success: false,
+          error: 'Missing INTERNAL_API_KEY for internal CV upload authentication',
+        };
+      }
+
       if (!jobId) {
         console.log(`[BUFFER-UPLOAD] ✗ No job ID provided - CV processing skipped`);
         return {
@@ -38,7 +47,10 @@ class CVUploadManager {
       try {
         console.log(`[BUFFER-UPLOAD] Making HTTP POST request...`);
         const response = await axios.post('http://localhost:8000/api/cv/upload', formData, {
-          headers: formData.getHeaders(),
+          headers: {
+            ...formData.getHeaders(),
+            Authorization: `Bearer ${internalApiKey}`,
+          },
           timeout: 60000,
         });
 

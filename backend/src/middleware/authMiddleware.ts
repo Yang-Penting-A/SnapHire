@@ -25,6 +25,14 @@ export const authMiddleware = async (
 
     const token = authHeader.substring(7); 
 
+    const internalApiKey = process.env.INTERNAL_API_KEY;
+    if (internalApiKey && token === internalApiKey) {
+      (req as any).internalService = true;
+      console.log('[AUTH] ✅ Internal service token verified');
+      next();
+      return;
+    }
+
     const { data: { user }, error } = await supabase.auth.getUser(token);
 
     if (error || !user) {

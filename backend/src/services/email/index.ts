@@ -1,3 +1,4 @@
+// Email Inbox & CV Ingestion Services
 export { default as EmailService } from './imap';
 export { default as EmailPollingService } from './poller';
 export { default as EmailParser } from './parser';
@@ -7,3 +8,9 @@ export { extractJobIdFromSubject, extractPositionFromSubject, findJobByPosition 
 export { ExtractedAttachment } from './parser';
 export { ValidationResult, AttachmentData } from './validator';
 export { UploadResult } from './uploadManager';
+
+// ATS Transactional Email Service (Resend)
+export { default as ATSEmailService } from './sendEmail';
+
+// Email Templates
+export { generateInterviewInvitationHTML, InterviewInvitationData } from './templates';

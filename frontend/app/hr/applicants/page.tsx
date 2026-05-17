@@ -1,8 +1,14 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
+import InterviewModal from '@/app/components/InterviewModal';
+import TechnicalTestModal from '@/app/components/TechnicalTestModal';
+import HiredModal from '@/app/components/HiredModal';
+import RejectedConfirmModal from '@/app/components/RejectedConfirmModal';
+import ShortlistedConfirmModal from '@/app/components/ShortlistedConfirmModal';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/app/lib/supabase';
+import ConfirmRescanModal from "@/app/components/ConfirmRescanModal";
 import { 
   Search, Star, Loader2, Briefcase, Filter, Inbox, RefreshCw
 } from 'lucide-react';
@@ -23,6 +29,12 @@ function ListPelamarContent() {
   // State untuk proses Re-scan AI
   const [scanningIds, setScanningIds] = useState<string[]>([]);
   const [isBulkScanning, setIsBulkScanning] = useState(false);
+  const fetchDataRef = useRef<() => void>(() => {});
+
+  const [openConfirm, setOpenConfirm] = useState(false); 
+  const [isBulkRescan, setIsBulkRescan] = useState(false); 
+  const [selectedCandidate, setSelectedCandidate] = useState<any>(null); 
+  const [isRescanning, setIsRescanning] = useState(false);
 
   const [filters, setFilters] = useState({
     name: '',
@@ -36,7 +48,7 @@ function ListPelamarContent() {
       let query = supabase
         .from('applications')
         .select(`
-          application_id, status_application, ai_score,
+          application_id, status_application, ai_score, confirmation_status,
           candidates!inner ( name ),
           jobs!inner ( job_id, title )
         `);
@@ -68,17 +80,119 @@ function ListPelamarContent() {
     fetchData();
   }, []);
 
-  const updateStatus = async (applicationId: string, newStatus: string) => {
+  useEffect(() => {
+    fetchDataRef.current = fetchData;
+  }, [fetchData]);
+
+  useEffect(() => {
+    const handleApplicantUpdated = () => {
+      fetchDataRef.current();
+    };
+
+    window.addEventListener('snaphire:hr-applicant-updated', handleApplicantUpdated);
+
+    return () => {
+      window.removeEventListener('snaphire:hr-applicant-updated', handleApplicantUpdated);
+    };
+  }, []);
+
+  const [showInterviewModal, setShowInterviewModal] = useState(false);
+  const [modalApplicationId, setModalApplicationId] = useState<string | null>(null);
+  const [selectedCandidateEmail, setSelectedCandidateEmail] = useState<string | null>(null);
+  const [selectedCandidateName, setSelectedCandidateName] = useState<string | null>(null);
+
+  // Technical Test Modal State
+  const [showTechnicalTestModal, setShowTechnicalTestModal] = useState(false);
+  const [technicalTestApplicationId, setTechnicalTestApplicationId] = useState<string | null>(null);
+
+  // Hired Modal State
+  const [showHiredModal, setShowHiredModal] = useState(false);
+  const [hiredApplicationId, setHiredApplicationId] = useState<string | null>(null);
+
+  // Rejected Confirm Modal State
+  const [showRejectedModal, setShowRejectedModal] = useState(false);
+  const [rejectedApplicationId, setRejectedApplicationId] = useState<string | null>(null);
+
+  // Shortlisted Confirm Modal State
+  const [showShortlistedModal, setShowShortlistedModal] = useState(false);
+  const [shortlistedApplicationId, setShortlistedApplicationId] = useState<string | null>(null);
+
+  const openInterviewModal = (applicationId: string) => {
+    console.log('Interview modal opened');
+    setModalApplicationId(applicationId);
+    setShowInterviewModal(true);
+  };
+
+  const openTechnicalTestModal = (applicationId: string, candidateName: string) => {
+    console.log('Technical Test modal opened');
+    setTechnicalTestApplicationId(applicationId);
+    setSelectedCandidateName(candidateName);
+    setShowTechnicalTestModal(true);
+  };
+
+  const openHiredModal = (applicationId: string, candidateName: string) => {
+    console.log('Hired modal opened');
+    setHiredApplicationId(applicationId);
+    setSelectedCandidateName(candidateName);
+    setShowHiredModal(true);
+  };
+
+  const openRejectedModal = (applicationId: string, candidateName: string) => {
+    console.log('Rejected confirm modal opened');
+    setRejectedApplicationId(applicationId);
+    setSelectedCandidateName(candidateName);
+    setShowRejectedModal(true);
+  };
+
+  const openShortlistedModal = (applicationId: string, candidateName: string) => {
+    console.log('Shortlisted confirm modal opened');
+    setShortlistedApplicationId(applicationId);
+    setSelectedCandidateName(candidateName);
+    setShowShortlistedModal(true);
+  };
+
+  const updateStatus = async (applicationId: string, newStatus: string, interviewData?: any) => {
     try {
+      console.log('[LIST] updateStatus called', { applicationId, newStatus, interviewData });
+
       const { error } = await supabase
         .from('applications')
         .update({ status_application: newStatus })
         .eq('application_id', applicationId);
 
       if (error) throw error;
-      fetchData(); 
+      
+      // Trigger ATS email automation if applicable
+      if (['Interview', 'Technical Test', 'Hired', 'Rejected', 'Shortlisted'].includes(newStatus)) {
+        triggerAtsAutomation(applicationId, newStatus, interviewData).catch(err =>
+          console.error('[ATS AUTOMATION] Error:', err)
+        );
+      }
+      
+      fetchData();
     } catch (err: any) {
       alert("Gagal update status: " + err.message);
+    }
+  };
+
+  const triggerAtsAutomation = async (applicationId: string, newStatus: string, interviewData?: any) => {
+    try {
+      const payload: any = { applicationId, newStatus };
+      if (interviewData) payload.interviewData = interviewData;
+
+      console.log('[LIST] triggerAtsAutomation payload:', payload);
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/applications/trigger-ats-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[Interview Email] Trigger failed:', errorText);
+      }
+    } catch (err) {
+      console.error('[ATS AUTOMATION] Network error:', err);
     }
   };
 
@@ -95,7 +209,7 @@ function ListPelamarContent() {
     }, 3000);
   };
 
-  // --- FUNGSI RE-SCAN AI MASSAL ---
+  // FUNGSI RE-SCAN AI MASSAL 
   const handleBulkRescan = async () => {
     if (applicants.length === 0) return;
     setIsBulkScanning(true);
@@ -111,6 +225,30 @@ function ListPelamarContent() {
     }, 5000);
   };
 
+  const handleConfirmRescan = async () => {
+  try {
+    setIsRescanning(true);
+
+    if (isBulkRescan) {
+      await handleBulkRescan();
+    } else if (selectedCandidate) {
+      await handleRescan(
+        {
+          stopPropagation: () => {},
+        } as React.MouseEvent,
+        selectedCandidate.application_id
+      );
+    }
+
+    setOpenConfirm(false);
+
+  } catch (err) {
+    console.error("Rescan confirmation error:", err);
+  } finally {
+    setIsRescanning(false);
+  }
+};
+
   const getStatusBadgeColor = (status: string) => {
     switch (status?.toLowerCase()) {
       case 'hired': return 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100';
@@ -123,9 +261,21 @@ function ListPelamarContent() {
     }
   };
 
+  const getConfirmationStatusBadge = (confirmationStatus: string) => {
+    switch (confirmationStatus?.toUpperCase()) {
+      case 'CONFIRMED':
+        return { text: '✓ Confirmed', class: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+      case 'DECLINED':
+        return { text: '✗ Declined', class: 'bg-rose-50 text-rose-700 border-rose-200' };
+      case 'PENDING':
+        return { text: '⏱ Pending', class: 'bg-amber-50 text-amber-700 border-amber-200' };
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className="flex flex-col h-[calc(100vh-6rem)] max-w-7xl mx-auto px-4 pb-6 animate-in fade-in duration-700">
-      
       {/* FIXED HEADER & FILTERS */}
       <div className="shrink-0 space-y-6 mb-6">
         <div className="flex flex-col gap-1.5 pt-2">
@@ -133,7 +283,80 @@ function ListPelamarContent() {
           <p className="text-stone-500 font-medium">Data tersinkronisasi dengan kriteria AI Match Score.</p>
         </div>
 
-        <div className="bg-white p-4 rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-stone-100">
+          {/* Interview Scheduling Modal (shared for list view) */}
+          <InterviewModal
+            isOpen={showInterviewModal}
+            onClose={() => { setShowInterviewModal(false); setModalApplicationId(null); }}
+            onSubmit={async (interviewData) => {
+              console.log('Interview submitted:', interviewData);
+              console.log('[LIST] Interview modal submitted for application:', modalApplicationId, interviewData);
+              if (modalApplicationId) {
+                await updateStatus(modalApplicationId, 'Interview', interviewData);
+              }
+              setShowInterviewModal(false);
+              setModalApplicationId(null);
+            }}
+          />
+
+          {/* Technical Test Modal */}
+          <TechnicalTestModal
+            isOpen={showTechnicalTestModal}
+            onClose={() => { setShowTechnicalTestModal(false); setTechnicalTestApplicationId(null); }}
+            onSubmit={async (testData) => {
+              console.log('[LIST] Technical Test modal submitted:', testData);
+              if (technicalTestApplicationId) {
+                await updateStatus(technicalTestApplicationId, 'Technical Test', testData);
+              }
+              setShowTechnicalTestModal(false);
+              setTechnicalTestApplicationId(null);
+            }}
+          />
+
+          {/* Hired Modal */}
+          <HiredModal
+            isOpen={showHiredModal}
+            onClose={() => { setShowHiredModal(false); setHiredApplicationId(null); }}
+            onSubmit={async (hiredData) => {
+              console.log('[LIST] Hired modal submitted:', hiredData);
+              if (hiredApplicationId) {
+                await updateStatus(hiredApplicationId, 'Hired', hiredData);
+              }
+              setShowHiredModal(false);
+              setHiredApplicationId(null);
+            }}
+          />
+
+          {/* Rejected Confirm Modal */}
+          <RejectedConfirmModal
+            isOpen={showRejectedModal}
+            candidateName={selectedCandidateName || 'Kandidat'}
+            onClose={() => { setShowRejectedModal(false); setRejectedApplicationId(null); }}
+            onConfirm={async () => {
+              console.log('[LIST] Rejection confirmed for application:', rejectedApplicationId);
+              if (rejectedApplicationId) {
+                await updateStatus(rejectedApplicationId, 'Rejected');
+              }
+              setShowRejectedModal(false);
+              setRejectedApplicationId(null);
+            }}
+          />
+
+          {/* Shortlisted Confirm Modal */}
+          <ShortlistedConfirmModal
+            isOpen={showShortlistedModal}
+            candidateName={selectedCandidateName || 'Kandidat'}
+            onClose={() => { setShowShortlistedModal(false); setShortlistedApplicationId(null); }}
+            onConfirm={async (additionalMessage) => {
+              console.log('[LIST] Shortlisted confirmed for application:', shortlistedApplicationId, additionalMessage);
+              if (shortlistedApplicationId) {
+                await updateStatus(shortlistedApplicationId, 'Shortlisted', { additionalMessage });
+              }
+              setShowShortlistedModal(false);
+              setShortlistedApplicationId(null);
+            }}
+          />
+
+        <div className="bg-white p-4 rounded-4xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-stone-100">
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-3">
             <div className="relative group lg:col-span-1">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400 group-focus-within:text-blue-600 transition-colors" size={18} />
@@ -172,7 +395,11 @@ function ListPelamarContent() {
 
             {/* TOMBOL BULK RE-SCAN */}
             <button 
-              onClick={handleBulkRescan}
+              onClick={() => {
+                setIsBulkRescan(true);
+                setSelectedCandidate(null);
+                setOpenConfirm(true);
+              }}
               disabled={isBulkScanning || applicants.length === 0}
               className="bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 py-3.5 rounded-xl font-black text-[11px] uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 lg:col-span-1"
             >
@@ -186,7 +413,7 @@ function ListPelamarContent() {
       {/* SCROLLABLE TABLE CONTAINER */}
       <div className="flex-1 min-h-0 bg-white rounded-[2.5rem] border border-stone-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden flex flex-col">
         <div className="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar">
-          <table className="w-full text-left border-collapse table-fixed min-w-[1000px]">
+          <table className="w-full text-left border-collapse table-fixed min-w-250">
             <thead className="sticky top-0 bg-white/95 backdrop-blur-sm z-20 border-b border-stone-100">
               <tr>
                 <th className="px-6 py-6 text-stone-400 font-black text-[10px] uppercase tracking-[0.2em] w-20 text-center">Rank</th>
@@ -257,14 +484,57 @@ function ListPelamarContent() {
                       </td>
 
                       <td className="px-4 py-6 text-center">
-                        <div onClick={(e) => e.stopPropagation()} className="inline-block w-full max-w-[170px]">
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          className="inline-block w-full max-w-42.5"
+                        >
                           <select 
                             value={currentStatus}
-                            onChange={(e) => updateStatus(app.application_id, e.target.value)}
+                            onChange={(e) => {
+                              const value = (e.target.value || '').toString();
+                              console.log('[LIST] status changed for', app.application_id, 'to', value);
+                              
+                              // Handle Interview status
+                              if (value.trim().toLowerCase() === 'interview') {
+                                openInterviewModal(app.application_id);
+                                return;
+                              }
+
+                              // Handle Technical Test status
+                              if (value.trim().toLowerCase() === 'technical test') {
+                                openTechnicalTestModal(app.application_id, candidateName);
+                                return;
+                              }
+
+                                                      // Handle Hired status
+                              if (value.trim().toLowerCase() === 'hired') {
+                                openHiredModal(app.application_id, candidateName);
+                                return;
+                              }
+
+                                                      // Handle Rejected status
+                              if (value.trim().toLowerCase() === 'rejected') {
+                                openRejectedModal(app.application_id, candidateName);
+                                return;
+                              }
+
+                                                      // Handle Shortlisted status
+                                                      if (value.trim().toLowerCase() === 'shortlisted') {
+                                                        openShortlistedModal(app.application_id, candidateName);
+                                                        return;
+                                                      }
+
+                              // For other statuses, update directly
+                              updateStatus(app.application_id, value);
+                            }}
                             className={`w-full text-[9px] font-black uppercase tracking-widest px-3 py-2.5 rounded-lg border outline-none cursor-pointer appearance-none text-center transition-all shadow-sm ${getStatusBadgeColor(currentStatus)}`}
                           >
                             {MASTER_STATUSES.map(s => <option key={s} value={s} className="bg-white text-stone-700">{s}</option>)}
                           </select>
+                          
+                          {/* Confirmation status intentionally not shown in list view to keep UI clean */}
                         </div>
                       </td>
 
@@ -272,7 +542,13 @@ function ListPelamarContent() {
                         <div className="flex items-center justify-center gap-2">
                           {/* TOMBOL RE-SCAN INDIVIDU */}
                           <button 
-                            onClick={(e) => handleRescan(e, app.application_id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+
+                              setSelectedCandidate(app);
+                              setIsBulkRescan(false);
+                              setOpenConfirm(true);
+                            }}
                             disabled={isScanning}
                             title="Proses Ulang AI"
                             className="p-2.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-xl hover:bg-blue-100 transition-colors disabled:opacity-50"
@@ -293,7 +569,14 @@ function ListPelamarContent() {
           </table>
         </div>
       </div>
-
+    <ConfirmRescanModal
+      isOpen={openConfirm}
+      onClose={() => setOpenConfirm(false)}
+      onConfirm={handleConfirmRescan}
+      isBulk={isBulkRescan}
+      candidateName={selectedCandidate?.candidates?.name}
+      isLoading={isRescanning}
+    />
     </div>
   );
 }

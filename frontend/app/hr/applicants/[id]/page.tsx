@@ -8,6 +8,11 @@ import {
   Link as LinkIcon, Globe, Star, FileText, CheckCircle2, 
   XCircle, Loader2, User, ExternalLink
 } from 'lucide-react'; 
+import InterviewModal from "@/app/components/InterviewModal";
+import TechnicalTestModal from "@/app/components/TechnicalTestModal";
+import HiredModal from "@/app/components/HiredModal";
+import RejectedConfirmModal from "@/app/components/RejectedConfirmModal";
+import ShortlistedConfirmModal from "@/app/components/ShortlistedConfirmModal";
 
 export default function CandidateDetailPage() {
   const params = useParams();
@@ -16,6 +21,19 @@ export default function CandidateDetailPage() {
 
   const [application, setApplication] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showInterviewModal, setShowInterviewModal] = useState(false);
+  
+  // Technical Test Modal State
+  const [showTechnicalTestModal, setShowTechnicalTestModal] = useState(false);
+  
+  // Hired Modal State
+  const [showHiredModal, setShowHiredModal] = useState(false);
+  
+  // Rejected Confirm Modal State
+  const [showRejectedModal, setShowRejectedModal] = useState(false);
+
+  // Shortlisted Confirm Modal State
+  const [showShortlistedModal, setShowShortlistedModal] = useState(false);
 
   useEffect(() => {
     const fetchCandidateDetail = async () => {
@@ -23,7 +41,7 @@ export default function CandidateDetailPage() {
         const { data, error } = await supabase
           .from('applications')
           .select(`
-            application_id, status_application, ai_score,
+            application_id, status_application, ai_score, confirmation_status,
             ai_summary, ai_strengths, ai_weaknesses, ai_recommendation, created_at,
             candidates ( name, email, phone_number, linkedin_url, portfolio_url, cv_file_url ),
             jobs ( title, department )
@@ -43,18 +61,87 @@ export default function CandidateDetailPage() {
     if (applicationId) fetchCandidateDetail();
   }, [applicationId]);
 
-  const updateStatus = async (newStatus: string) => {
+  const updateStatus = async (newStatus: string, interviewData?: any) => {
     try {
+      console.log(`[INTERVIEW SCHEDULING] Updating status to: ${newStatus}`, interviewData);
+      
       const { error } = await supabase
         .from('applications')
         .update({ status_application: newStatus })
         .eq('application_id', applicationId);
 
       if (error) throw error;
+      
+      // Trigger ATS email automation if applicable
+      if (['Interview', 'Technical Test', 'Hired', 'Rejected', 'Shortlisted'].includes(newStatus)) {
+        triggerAtsAutomation(applicationId, newStatus, interviewData).catch(err => 
+          console.error('[ATS AUTOMATION] Error:', err)
+        );
+      }
+      
       setApplication({ ...application, status_application: newStatus });
     } catch (err: any) {
       alert("Gagal update status: " + err.message);
     }
+  };
+
+  const triggerAtsAutomation = async (applicationId: string, newStatus: string, interviewData?: any) => {
+    try {
+      console.log('[ATS AUTOMATION] Triggering automation with interview data:', interviewData);
+      
+      const payload = {
+        applicationId,
+        newStatus,
+        ...(interviewData && { interviewData })
+      };
+
+      console.log('[ATS AUTOMATION] Full payload:', payload);
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/applications/trigger-ats-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[ATS AUTOMATION] Trigger failed:', errorText);
+      } else {
+        console.log('[ATS AUTOMATION] Successfully triggered automation');
+      }
+    } catch (err) {
+      console.error('[ATS AUTOMATION] Network error:', err);
+    }
+  };
+
+  const handleStatusChange = (newStatus: string) => {
+    console.log('[DETAIL] Status changed to:', newStatus);
+    
+    if (newStatus.toLowerCase() === 'interview') {
+      setShowInterviewModal(true);
+      return;
+    }
+    
+    if (newStatus.toLowerCase() === 'technical test') {
+      setShowTechnicalTestModal(true);
+      return;
+    }
+    
+    if (newStatus.toLowerCase() === 'hired') {
+      setShowHiredModal(true);
+      return;
+    }
+    
+    if (newStatus.toLowerCase() === 'rejected') {
+      setShowRejectedModal(true);
+      return;
+    }
+
+    if (newStatus.toLowerCase() === 'shortlisted') {
+      setShowShortlistedModal(true);
+      return;
+    }
+    
+    updateStatus(newStatus);
   };
 
   // FUNGSI WARNA YANG SUDAH DIUPDATE
@@ -67,6 +154,19 @@ export default function CandidateDetailPage() {
       case 'rejected': return 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100 focus:ring-rose-500/20';
       case 'review ai':
       default: return 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100 focus:ring-stone-500/10';
+    }
+  };
+
+  const getConfirmationStatusBadge = (confirmationStatus: string) => {
+    switch (confirmationStatus?.toUpperCase()) {
+      case 'CONFIRMED':
+        return { text: 'Confirmed', class: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+      case 'DECLINED':
+        return { text: 'Declined', class: 'bg-rose-50 text-rose-700 border-rose-200' };
+      case 'PENDING':
+        return { text: 'Pending', class: 'bg-amber-50 text-amber-700 border-amber-200' };
+      default:
+        return null;
     }
   };
 
@@ -130,7 +230,7 @@ export default function CandidateDetailPage() {
           <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Ubah Status Kandidat</label>
           <select 
             value={currentStatus}
-            onChange={(e) => updateStatus(e.target.value)}
+            onChange={(e) => handleStatusChange((e.target.value || '').toString())}
             className={`
               w-full md:w-56 px-4 py-3 rounded-xl font-black text-[11px] uppercase tracking-widest outline-none cursor-pointer transition-all appearance-none text-center shadow-sm border
               ${getStatusBadgeColor(currentStatus)}
@@ -140,6 +240,16 @@ export default function CandidateDetailPage() {
               <option key={s} value={s} className="bg-white text-stone-700 font-bold">{s}</option>
             ))}
           </select>
+          {/* Show confirmation status on detail page when interview scheduled */}
+          {application?.status_application?.toLowerCase() === 'interview' && application?.confirmation_status && (
+            <div className="mt-3">
+              {getConfirmationStatusBadge(application.confirmation_status) && (
+                <div className={`inline-block text-sm font-black uppercase tracking-widest px-3 py-2 rounded-lg border ${getConfirmationStatusBadge(application.confirmation_status)?.class}`}>
+                  {getConfirmationStatusBadge(application.confirmation_status)?.text}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -286,6 +396,63 @@ export default function CandidateDetailPage() {
         </div>
 
       </div>
+
+      {/* Interview Scheduling Modal */}
+      <InterviewModal
+        isOpen={showInterviewModal}
+        onClose={() => setShowInterviewModal(false)}
+        onSubmit={async (interviewData) => {
+          console.log('[DETAIL] Interview modal submitted with data:', interviewData);
+          await updateStatus('Interview', interviewData);
+          setShowInterviewModal(false);
+        }}
+      />
+
+      {/* Technical Test Modal */}
+      <TechnicalTestModal
+        isOpen={showTechnicalTestModal}
+        onClose={() => setShowTechnicalTestModal(false)}
+        onSubmit={async (testData) => {
+          console.log('[DETAIL] Technical Test modal submitted:', testData);
+          await updateStatus('Technical Test', testData);
+          setShowTechnicalTestModal(false);
+        }}
+      />
+
+      {/* Hired Modal */}
+      <HiredModal
+        isOpen={showHiredModal}
+        onClose={() => setShowHiredModal(false)}
+        onSubmit={async (hiredData) => {
+          console.log('[DETAIL] Hired modal submitted:', hiredData);
+          await updateStatus('Hired', hiredData);
+          setShowHiredModal(false);
+        }}
+      />
+
+      {/* Rejected Confirm Modal */}
+      <RejectedConfirmModal
+        isOpen={showRejectedModal}
+        candidateName={candidate?.name || 'Kandidat'}
+        onClose={() => setShowRejectedModal(false)}
+        onConfirm={async () => {
+          console.log('[DETAIL] Rejection confirmed');
+          await updateStatus('Rejected');
+          setShowRejectedModal(false);
+        }}
+      />
+
+      {/* Shortlisted Confirm Modal */}
+      <ShortlistedConfirmModal
+        isOpen={showShortlistedModal}
+        candidateName={candidate?.name || 'Kandidat'}
+        onClose={() => setShowShortlistedModal(false)}
+        onConfirm={async (additionalMessage) => {
+          console.log('[DETAIL] Shortlisted confirmed', additionalMessage);
+          await updateStatus('Shortlisted', { additionalMessage });
+          setShowShortlistedModal(false);
+        }}
+      />
     </div>
   );
 }
