@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import InterviewModal from '@/app/components/InterviewModal';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/app/lib/supabase';
@@ -24,6 +24,7 @@ function ListPelamarContent() {
   // State untuk proses Re-scan AI
   const [scanningIds, setScanningIds] = useState<string[]>([]);
   const [isBulkScanning, setIsBulkScanning] = useState(false);
+  const fetchDataRef = useRef<() => void>(() => {});
 
   const [filters, setFilters] = useState({
     name: '',
@@ -67,6 +68,22 @@ function ListPelamarContent() {
 
   useEffect(() => {
     fetchData();
+  }, []);
+
+  useEffect(() => {
+    fetchDataRef.current = fetchData;
+  }, [fetchData]);
+
+  useEffect(() => {
+    const handleApplicantUpdated = () => {
+      fetchDataRef.current();
+    };
+
+    window.addEventListener('snaphire:hr-applicant-updated', handleApplicantUpdated);
+
+    return () => {
+      window.removeEventListener('snaphire:hr-applicant-updated', handleApplicantUpdated);
+    };
   }, []);
 
   const [showInterviewModal, setShowInterviewModal] = useState(false);
@@ -166,7 +183,6 @@ function ListPelamarContent() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-6rem)] max-w-7xl mx-auto px-4 pb-6 animate-in fade-in duration-700">
-      
       {/* FIXED HEADER & FILTERS */}
       <div className="shrink-0 space-y-6 mb-6">
         <div className="flex flex-col gap-1.5 pt-2">
