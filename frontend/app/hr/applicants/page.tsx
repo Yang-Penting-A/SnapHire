@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, Suspense } from 'react';
+import InterviewModal from '@/app/components/InterviewModal';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/app/lib/supabase';
 import { 
@@ -68,17 +69,57 @@ function ListPelamarContent() {
     fetchData();
   }, []);
 
-  const updateStatus = async (applicationId: string, newStatus: string) => {
+  const [showInterviewModal, setShowInterviewModal] = useState(false);
+  const [modalApplicationId, setModalApplicationId] = useState<string | null>(null);
+
+  const openInterviewModal = (applicationId: string) => {
+    console.log('Interview modal opened');
+    setModalApplicationId(applicationId);
+    setShowInterviewModal(true);
+  };
+
+  const updateStatus = async (applicationId: string, newStatus: string, interviewData?: any) => {
     try {
+      console.log('[LIST] updateStatus called', { applicationId, newStatus, interviewData });
+
       const { error } = await supabase
         .from('applications')
         .update({ status_application: newStatus })
         .eq('application_id', applicationId);
 
       if (error) throw error;
-      fetchData(); 
+      
+      // Trigger ATS email automation if applicable
+      if (['Interview', 'Technical Test', 'Hired', 'Rejected'].includes(newStatus)) {
+        triggerAtsAutomation(applicationId, newStatus, interviewData).catch(err =>
+          console.error('[ATS AUTOMATION] Error:', err)
+        );
+      }
+      
+      fetchData();
     } catch (err: any) {
       alert("Gagal update status: " + err.message);
+    }
+  };
+
+  const triggerAtsAutomation = async (applicationId: string, newStatus: string, interviewData?: any) => {
+    try {
+      const payload: any = { applicationId, newStatus };
+      if (interviewData) payload.interviewData = interviewData;
+
+      console.log('[LIST] triggerAtsAutomation payload:', payload);
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/applications/trigger-ats-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[Interview Email] Trigger failed:', errorText);
+      }
+    } catch (err) {
+      console.error('[ATS AUTOMATION] Network error:', err);
     }
   };
 
@@ -133,7 +174,22 @@ function ListPelamarContent() {
           <p className="text-stone-500 font-medium">Data tersinkronisasi dengan kriteria AI Match Score.</p>
         </div>
 
-        <div className="bg-white p-4 rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-stone-100">
+          {/* Interview Scheduling Modal (shared for list view) */}
+          <InterviewModal
+            isOpen={showInterviewModal}
+            onClose={() => { setShowInterviewModal(false); setModalApplicationId(null); }}
+            onSubmit={async (interviewData) => {
+              console.log('Interview submitted:', interviewData);
+              console.log('[LIST] Interview modal submitted for application:', modalApplicationId, interviewData);
+              if (modalApplicationId) {
+                await updateStatus(modalApplicationId, 'Interview', interviewData);
+              }
+              setShowInterviewModal(false);
+              setModalApplicationId(null);
+            }}
+          />
+
+        <div className="bg-white p-4 rounded-4xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-stone-100">
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-3">
             <div className="relative group lg:col-span-1">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400 group-focus-within:text-blue-600 transition-colors" size={18} />
@@ -186,7 +242,7 @@ function ListPelamarContent() {
       {/* SCROLLABLE TABLE CONTAINER */}
       <div className="flex-1 min-h-0 bg-white rounded-[2.5rem] border border-stone-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden flex flex-col">
         <div className="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar">
-          <table className="w-full text-left border-collapse table-fixed min-w-[1000px]">
+          <table className="w-full text-left border-collapse table-fixed min-w-250">
             <thead className="sticky top-0 bg-white/95 backdrop-blur-sm z-20 border-b border-stone-100">
               <tr>
                 <th className="px-6 py-6 text-stone-400 font-black text-[10px] uppercase tracking-[0.2em] w-20 text-center">Rank</th>
@@ -257,10 +313,24 @@ function ListPelamarContent() {
                       </td>
 
                       <td className="px-4 py-6 text-center">
-                        <div onClick={(e) => e.stopPropagation()} className="inline-block w-full max-w-[170px]">
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          className="inline-block w-full max-w-42.5"
+                        >
                           <select 
                             value={currentStatus}
-                            onChange={(e) => updateStatus(app.application_id, e.target.value)}
+                            onChange={(e) => {
+                              const value = (e.target.value || '').toString();
+                              console.log('[LIST] status changed for', app.application_id, 'to', value);
+                              if (value.trim().toLowerCase() === 'interview') {
+                                openInterviewModal(app.application_id);
+                                return;
+                              }
+
+                              updateStatus(app.application_id, value);
+                            }}
                             className={`w-full text-[9px] font-black uppercase tracking-widest px-3 py-2.5 rounded-lg border outline-none cursor-pointer appearance-none text-center transition-all shadow-sm ${getStatusBadgeColor(currentStatus)}`}
                           >
                             {MASTER_STATUSES.map(s => <option key={s} value={s} className="bg-white text-stone-700">{s}</option>)}

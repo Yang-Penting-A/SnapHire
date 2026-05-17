@@ -8,6 +8,7 @@ import {
   Link as LinkIcon, Globe, Star, FileText, CheckCircle2, 
   XCircle, Loader2, User, ExternalLink
 } from 'lucide-react'; 
+import InterviewModal from "@/app/components/InterviewModal";
 
 export default function CandidateDetailPage() {
   const params = useParams();
@@ -16,6 +17,7 @@ export default function CandidateDetailPage() {
 
   const [application, setApplication] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showInterviewModal, setShowInterviewModal] = useState(false);
 
   useEffect(() => {
     const fetchCandidateDetail = async () => {
@@ -43,17 +45,55 @@ export default function CandidateDetailPage() {
     if (applicationId) fetchCandidateDetail();
   }, [applicationId]);
 
-  const updateStatus = async (newStatus: string) => {
+  const updateStatus = async (newStatus: string, interviewData?: any) => {
     try {
+      console.log(`[INTERVIEW SCHEDULING] Updating status to: ${newStatus}`, interviewData);
+      
       const { error } = await supabase
         .from('applications')
         .update({ status_application: newStatus })
         .eq('application_id', applicationId);
 
       if (error) throw error;
+      
+      // Trigger ATS email automation if applicable
+      if (['Interview', 'Technical Test', 'Hired', 'Rejected'].includes(newStatus)) {
+        triggerAtsAutomation(applicationId, newStatus, interviewData).catch(err => 
+          console.error('[ATS AUTOMATION] Error:', err)
+        );
+      }
+      
       setApplication({ ...application, status_application: newStatus });
     } catch (err: any) {
       alert("Gagal update status: " + err.message);
+    }
+  };
+
+  const triggerAtsAutomation = async (applicationId: string, newStatus: string, interviewData?: any) => {
+    try {
+      console.log('[ATS AUTOMATION] Triggering automation with interview data:', interviewData);
+      
+      const payload = {
+        applicationId,
+        newStatus,
+        ...(interviewData && { interviewData })
+      };
+
+      console.log('[ATS AUTOMATION] Full payload:', payload);
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/applications/trigger-ats-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[ATS AUTOMATION] Trigger failed:', errorText);
+      } else {
+        console.log('[ATS AUTOMATION] Successfully triggered automation');
+      }
+    } catch (err) {
+      console.error('[ATS AUTOMATION] Network error:', err);
     }
   };
 
@@ -130,7 +170,20 @@ export default function CandidateDetailPage() {
           <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Ubah Status Kandidat</label>
           <select 
             value={currentStatus}
-            onChange={(e) => updateStatus(e.target.value)}
+            onChange={(e) => {
+              const selectedValue = (e.target.value || '').toString();
+              console.log('[INTERVIEW SCHEDULING] Status dropdown changed to:', selectedValue, 'currentStatus=', currentStatus);
+
+              // Intercept Interview status (case-insensitive) - show modal instead of updating immediately
+              if (selectedValue.trim().toLowerCase() === 'interview') {
+                console.log('[INTERVIEW SCHEDULING] Interview status selected - opening modal');
+                setShowInterviewModal(true);
+                return;
+              }
+
+              // For all other statuses, update immediately
+              updateStatus(selectedValue);
+            }}
             className={`
               w-full md:w-56 px-4 py-3 rounded-xl font-black text-[11px] uppercase tracking-widest outline-none cursor-pointer transition-all appearance-none text-center shadow-sm border
               ${getStatusBadgeColor(currentStatus)}
@@ -286,6 +339,18 @@ export default function CandidateDetailPage() {
         </div>
 
       </div>
+
+      {/* Interview Scheduling Modal */}
+      <InterviewModal
+        isOpen={showInterviewModal}
+        onClose={() => setShowInterviewModal(false)}
+        onSubmit={async (interviewData) => {
+          console.log('[INTERVIEW SCHEDULING] Modal submitted with data:', interviewData);
+          // After modal submission, continue with the existing status update flow
+          await updateStatus('Interview', interviewData);
+          setShowInterviewModal(false);
+        }}
+      />
     </div>
   );
 }
