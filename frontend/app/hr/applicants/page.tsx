@@ -3,6 +3,8 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/app/lib/supabase';
+// 🔥 IMPORT: Daftarkan session manager kelompok lu di paling atas
+import sessionManager from '@/app/lib/sessionManager';
 import { 
   Search, Star, Loader2, Briefcase, Filter, Inbox, RefreshCw
 } from 'lucide-react';
@@ -68,6 +70,7 @@ function ListPelamarContent() {
     fetchData();
   }, []);
 
+  // --- 1. FUNGSI AKSES: UPDATE STATUS PELAMAR ---
   const updateStatus = async (applicationId: string, newStatus: string) => {
     try {
       const { error } = await supabase
@@ -76,32 +79,66 @@ function ListPelamarContent() {
         .eq('application_id', applicationId);
 
       if (error) throw error;
+
+      // 🔥 LOGS: Tangkap pelaku (HR) yang ngubah status pelamar
+      const currentUser = sessionManager.getSession()?.user;
+      if (currentUser) {
+        // Cari nama kandidatnya dari state biar log-nya informatif
+        const targetApp = applicants.find(a => a.application_id === applicationId);
+        const candidateName = targetApp?.candidates?.name || 'Kandidat';
+
+        await supabase.from('activity_logs').insert({
+          user_id: currentUser.user_id,
+          activity: `CV: ${currentUser.name} mengubah status "${candidateName}" menjadi [${newStatus}]`
+        });
+      }
+
       fetchData(); 
     } catch (err: any) {
       alert("Gagal update status: " + err.message);
     }
   };
 
-  // --- FUNGSI RE-SCAN AI INDIVIDU ---
+  // --- 2. FUNGSI AKSES: RE-SCAN AI INDIVIDU ---
   const handleRescan = async (e: React.MouseEvent, appId: string) => {
     e.stopPropagation(); // Mencegah baris ter-klik
     setScanningIds(prev => [...prev, appId]);
     
+    // 🔥 LOGS: Tangkap aksi HR pas nge-scan ulang CV orang tertentu
+    const currentUser = sessionManager.getSession()?.user;
+    if (currentUser) {
+      const targetApp = applicants.find(a => a.application_id === appId);
+      const candidateName = targetApp?.candidates?.name || 'Kandidat';
+
+      await supabase.from('activity_logs').insert({
+        user_id: currentUser.user_id,
+        activity: `CV: ${currentUser.name} memproses ulang kecocokan AI untuk "${candidateName}"`
+      });
+    }
+
     // Simulasi delay proses AI (3 detik)
-    // Nanti ganti dengan pemanggilan API backend AI kamu yang sebenarnya
     setTimeout(() => {
       setScanningIds(prev => prev.filter(id => id !== appId));
       // fetchData(); // Tarik data terbaru setelah AI selesai update skor
     }, 3000);
   };
 
-  // --- FUNGSI RE-SCAN AI MASSAL ---
+  // --- 3. FUNGSI AKSES: RE-SCAN AI MASSAL ---
   const handleBulkRescan = async () => {
     if (applicants.length === 0) return;
     setIsBulkScanning(true);
     
     const allIds = applicants.map(a => a.application_id);
     setScanningIds(prev => [...new Set([...prev, ...allIds])]);
+
+    // 🔥 LOGS: Tangkap aksi HR pas melakukan scan massal di page ini
+    const currentUser = sessionManager.getSession()?.user;
+    if (currentUser) {
+      await supabase.from('activity_logs').insert({
+        user_id: currentUser.user_id,
+        activity: `CV: ${currentUser.name} melakukan Re-scan AI massal terhadap ${applicants.length} pelamar`
+      });
+    }
 
     // Simulasi delay proses AI Massal (5 detik)
     setTimeout(() => {
@@ -210,7 +247,7 @@ function ListPelamarContent() {
                   </td>
                 </tr>
               ) : (
-                applicants.map((app, index) => {
+                applicants.map((app: any, index: number) => {
                   const candidateName = app.candidates?.name || 'Anonymous';
                   const currentStatus = app.status_application || 'Review AI';
                   const isScanning = scanningIds.includes(app.application_id);

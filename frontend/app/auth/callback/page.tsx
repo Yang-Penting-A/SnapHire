@@ -169,11 +169,16 @@ export default function AuthCallbackPage() {
         // Store session with expiration timestamp
         sessionManager.storeSession(token, userData);
 
-        // Log activity
         const { error: logError } = await supabase.from('activity_logs').insert({
-          user_id: user.id,
-          activity: `OAUTH LOGIN (Google): ${userData?.name || 'User'} masuk sebagai ${userData?.role || 'user'}`
+          user_id: existingUser.user_id, 
+          activity: `LOGIN: ${userData?.name || existingUser.name} masuk menggunakan Google OAuth`
         });
+
+        if (logError) {
+          console.error('[LOG ERROR] Gagal mencatat log Google:', logError.message);
+        } else {
+          console.log('[LOG SUCCESS] Log Google Auth berhasil dicatat!');
+        }
 
         if (logError) console.warn('Gagal mencatat log:', logError.message);
 
@@ -246,7 +251,7 @@ export default function AuthCallbackPage() {
           onClick={() => router.push('/login')}
           className="w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition-all"
         >
-          Kembali ke Login
+          Back to Login
         </button>
       </div>
     </div>

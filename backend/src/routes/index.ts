@@ -5,9 +5,11 @@ import { authMiddleware } from '../middleware/authMiddleware';
 import { requireRole, onlyAdmin, onlyHR, onlyHROrAdmin } from '../middleware/roleMiddleware';
 import { AuthRequest, ApiResponse } from '../types';
 import cvRouter from './cv';
+import sendEmailRouter from '../api/auth/send'; // Sesuaikan kalau foldernya beda, misal './auth/send'
 
 const router = Router();
 router.use('/cv', cvRouter);
+router.use('/auth', sendEmailRouter);
 
 router.post(
   '/login',
