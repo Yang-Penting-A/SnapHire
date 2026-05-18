@@ -19,13 +19,11 @@ export default function LoginPage() {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [isCheckingSession, setIsCheckingSession] = useState(true);
-  
-  // STATE hasActiveSession dan activeUser DIHAPUS karena udah ngga pakai page session aktif
 
   // LOGIC BARU: CHECK SESSION YANG LEBIH STABIL & AUTO-REDIRECT
   useEffect(() => {
     // Check for error in URL parameters
-    const error = searchParams.get('error');
+    const error = searchParams?.get('error');
     if (error) {
       const errorMessages: Record<string, string> = {
         'unauthorized': 'Email Anda belum terdaftar. Hubungi administrator untuk didaftarkan.',
@@ -77,7 +75,7 @@ export default function LoginPage() {
     };
 
     checkExistingSession();
-  }, [router]);
+  }, [router, searchParams]);
 
   // Detect logout/login di tab lain
   useEffect(() => {
@@ -85,7 +83,7 @@ export default function LoginPage() {
       // If token or timestamp is removed/changed in another tab
       if (event.key === 'token' || 
           event.key === 'session_timestamp' || 
-          event.key === 'user' && event.newValue !== event.oldValue) {
+          (event.key === 'user' && event.newValue !== event.oldValue)) {
         console.log('[LOGIN] Storage changed in another tab, redirecting to login...');
         window.location.href = '/login';
       }
@@ -120,9 +118,36 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
+
+    // --- 🚨 JALUR BYPASS (BACKDOOR) BUAT TESTING UI DOANG 🚨 ---
+    // Masukin email 'bypass@snaphire.com' dan sandi 'bypass123' buat tembus instan
+    if (email === 'bypass@snaphire.com' && password === 'bypass123') {
+      console.log('[BYPASS] Masuk lewat jalur belakang nih bos! 🕵️‍♂️');
+      
+      // Bikin data user bohongan
+      const fakeUser = {
+        id: 'bypass-007',
+        name: 'Admin Bayangan',
+        email: 'bypass@snaphire.com',
+        role: 'hr' // Ganti jadi 'hr' kalo lu mau ngetes dashboard HR
+      };
+
+      // Set localStorage pake token palsu
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('token', 'token-palsu-buat-bypass-12345');
+        localStorage.setItem('user', JSON.stringify(fakeUser));
+      }
+
+      // Lempar ke halaman admin (atau hr)
+      router.push('/admin'); 
+      return; // Stop eksekusi di sini biar ga lanjut nembak Supabase
+    }
+    // -----------------------------------------------------------
+
     setIsLoading(true);
 
     try {
+      // 1. Login ke Supabase
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: email,
         password: password,
@@ -130,6 +155,7 @@ export default function LoginPage() {
 
       if (authError) throw authError;
 
+      // 2. Ambil Session buat dapet Token
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       if (sessionError || !sessionData?.session?.access_token) {
         throw new Error('Gagal mendapatkan token dari Supabase');
@@ -137,7 +163,7 @@ export default function LoginPage() {
 
       const token = sessionData.session.access_token;
 
-      // Backend verify token
+      // 3. Backend verify token
       const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
       const response = await fetch(`${backendUrl}/login`, {
         method: 'POST',
@@ -155,10 +181,10 @@ export default function LoginPage() {
       const loginData = await response.json();
       const userData = loginData.data;
 
-      // Store session with expiration timestamp
+      // Store session with expiration timestamp via sessionManager
       sessionManager.storeSession(token, userData);
 
-      // catat activity log
+      // 5. Catat activity log
       const { error: logError } = await supabase.from('activity_logs').insert({
         user_id: authData.user.id,
         activity: `LOGIN: ${userData?.name || 'User'} masuk sebagai ${userData?.role || 'user'}`
@@ -166,6 +192,7 @@ export default function LoginPage() {
 
       if (logError) console.error("Gagal mencatat log:", logError.message);
 
+      // 6. Redirect sesuai Role
       const role = userData?.role?.toLowerCase();
       router.refresh();
 
@@ -185,7 +212,6 @@ export default function LoginPage() {
     }
   };
 
-  // loading state
   if (isCheckingSession) {
     return (
       <div className="min-h-screen bg-[#F4F7FE] flex items-center justify-center">
@@ -256,8 +282,7 @@ export default function LoginPage() {
                   <label className="text-sm font-bold text-stone-800 flex items-center gap-2">
                     <Lock size={14} className="text-blue-600" /> Kata Sandi
                   </label>
-                  {/* Link lupa sandi ke /auth/forgot-password */}
-                  <button type="button" onClick={() => router.push('/auth/forgot-password')} className="text-xs font-bold text-blue-600 hover:underline">
+                  <button type="button" onClick={() => router.push('/reset-password')} className="text-xs font-bold text-blue-600 hover:underline">
                     Lupa sandi?
                   </button>
                 </div>
@@ -287,7 +312,7 @@ export default function LoginPage() {
 
               <button 
                 type="submit" 
-                disabled={isLoading}
+                disabled={isLoading || isGoogleLoading}
                 className="w-full bg-blue-600 text-white font-black py-4.5 rounded-2xl hover:bg-blue-700 active:scale-[0.98] transition-all mt-2 shadow-xl shadow-blue-600/25 disabled:bg-blue-400 flex justify-center items-center gap-2 text-lg"
               >
                 {isLoading ? <div className="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin"></div> : <><LogIn size={20} /> Masuk Sekarang</>}
@@ -324,6 +349,10 @@ export default function LoginPage() {
                 </>
               )}
             </button>
+
+            <p className="text-center text-sm text-stone-500 font-medium">
+              Belum punya akun? <Link href="/register" className="text-blue-600 font-black hover:underline underline-offset-4">Daftar di sini</Link>
+            </p>
 
           </div>
         </div>
