@@ -1,5 +1,5 @@
-import app from './server';
-import { config } from './config/config';
+import app from './app';
+import { config } from './config';
 import EmailPollingService from './services/email/poller';
 
 const PORT = config.port;

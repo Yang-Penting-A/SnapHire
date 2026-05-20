@@ -92,3 +92,25 @@ export const supabaseService = {
     }
   },
 };
+
+// --- Auth Service Functions (formerly auth.service.ts) ---
+
+export async function getUserById(userId: string) {
+  return await supabaseService.select('users', { user_id: userId });
+}
+
+export async function getUserByEmail(email: string) {
+  return await supabaseService.select('users', { email });
+}
+
+export async function updateUserPasswordAdmin(userId: string, newPassword: string) {
+  try {
+    const { error } = await supabase.auth.admin.updateUserById(userId, { password: newPassword });
+    if (error) {
+      return { success: false, error };
+    }
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err };
+  }
+}
