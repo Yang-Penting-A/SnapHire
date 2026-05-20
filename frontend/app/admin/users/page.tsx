@@ -2,7 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/app/lib/supabase';
-import { UserPlus, Users, Mail, Lock, User, ShieldCheck, Search, Trash2, BadgeCheck, Loader2 } from 'lucide-react';
+import { 
+  UserPlus, Users, Mail, Lock, User, 
+  ShieldCheck, Search, Edit, PowerOff, 
+  CheckCircle, BadgeCheck, Loader2 
+} from 'lucide-react';
 
 export default function AdminUserManagement() {
   const [activeTab, setActiveTab] = useState<'list' | 'create'>('list');
@@ -13,6 +17,10 @@ export default function AdminUserManagement() {
   // State untuk Form Registrasi HR
   const [formData, setFormData] = useState({ fullName: '', email: '', password: '' });
   const [message, setMessage] = useState({ type: '', text: '' });
+
+  // State untuk Modal Edit Nama
+  const [editingUser, setEditingUser] = useState<any>(null);
+  const [editName, setEditName] = useState('');
 
   useEffect(() => {
     fetchUsers();
@@ -35,7 +43,7 @@ export default function AdminUserManagement() {
     setMessage({ type: '', text: '' });
 
     try {
-      const { data: { user: currentAdmin } } = await supabase.auth.getUser();
+      // 1. Daftarkan ke Auth Supabase
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -48,6 +56,9 @@ export default function AdminUserManagement() {
       });
 
       if (authError) throw authError;
+
+      // 2. Catat aktivitas Admin ke Logs
+      const { data: { user: currentAdmin } } = await supabase.auth.getUser();
       if (currentAdmin) {
         await supabase.from('activity_logs').insert({
           user_id: currentAdmin.id,
@@ -65,6 +76,57 @@ export default function AdminUserManagement() {
     }
   };
 
+  // FUNGSI UPDATE NAMA LENGKAP
+  const handleUpdateName = async () => {
+    if (!editName) return;
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ name: editName })
+        .eq('user_id', editingUser.user_id);
+
+      if (error) throw error;
+
+      const { data: { user: currentAdmin } } = await supabase.auth.getUser();
+      if (currentAdmin) {
+        await supabase.from('activity_logs').insert({
+          user_id: currentAdmin.id,
+          activity: `ADMIN: Mengubah nama akun ${editingUser.email} menjadi ${editName}`
+        });
+      }
+
+      setEditingUser(null);
+      fetchUsers();
+    } catch (error) {
+      console.error("Gagal update nama:", error);
+    }
+  };
+
+  // FUNGSI NONAKTIFKAN / AKTIFKAN AKUN
+  const handleToggleStatus = async (user: any) => {
+    const newStatus = user.status === 'nonaktif' ? 'aktif' : 'nonaktif';
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ status: newStatus })
+        .eq('user_id', user.user_id);
+
+      if (error) throw error;
+
+      const { data: { user: currentAdmin } } = await supabase.auth.getUser();
+      if (currentAdmin) {
+        await supabase.from('activity_logs').insert({
+          user_id: currentAdmin.id,
+          activity: `ADMIN: Mengubah status akun ${user.email} menjadi ${newStatus}`
+        });
+      }
+
+      fetchUsers();
+    } catch (error) {
+      console.error("Gagal update status:", error);
+    }
+  };
+
   const filteredUsers = users.filter(u => 
     u.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
     u.email?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -72,6 +134,7 @@ export default function AdminUserManagement() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
+      
       {/* HEADER & TAB SWITCHER */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div>
@@ -109,25 +172,25 @@ export default function AdminUserManagement() {
 
           <div className="bg-white rounded-[2.5rem] border border-stone-100 shadow-xl shadow-stone-200/30 overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full text-left border-collapse min-w-[800px]">
                 <thead className="bg-stone-50/50 border-b border-stone-100">
                   <tr>
                     <th className="px-8 py-5 text-[10px] font-black text-stone-400 uppercase tracking-[0.2em]">Profil User</th>
                     <th className="px-8 py-5 text-[10px] font-black text-stone-400 uppercase tracking-[0.2em]">Role Akses</th>
                     <th className="px-8 py-5 text-[10px] font-black text-stone-400 uppercase tracking-[0.2em]">Status</th>
-                    <th className="px-8 py-5 text-[10px] font-black text-stone-400 uppercase tracking-[0.2em]">Aksi</th>
+                    <th className="px-8 py-5 text-[10px] font-black text-stone-400 uppercase tracking-[0.2em] text-right">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stone-50">
                   {filteredUsers.map((user) => (
-                    <tr key={user.user_id} className="hover:bg-stone-50/50 transition-colors group">
+                    <tr key={user.user_id} className={`hover:bg-stone-50/50 transition-colors group ${user.status === 'nonaktif' ? 'opacity-50' : ''}`}>
                       <td className="px-8 py-5">
                         <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-full bg-stone-100 text-stone-500 group-hover:bg-blue-600 group-hover:text-white transition-all flex items-center justify-center font-black">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black transition-all ${user.status === 'nonaktif' ? 'bg-stone-200 text-stone-400' : 'bg-stone-100 text-stone-500 group-hover:bg-blue-600 group-hover:text-white'}`}>
                             {user.name?.charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <p className="text-stone-900 font-black text-sm">{user.name}</p>
+                            <p className={`font-black text-sm ${user.status === 'nonaktif' ? 'text-stone-500 line-through' : 'text-stone-900'}`}>{user.name}</p>
                             <p className="text-stone-400 text-xs font-bold">{user.email}</p>
                           </div>
                         </div>
@@ -141,14 +204,36 @@ export default function AdminUserManagement() {
                         </span>
                       </td>
                       <td className="px-8 py-5">
-                        <div className="flex items-center gap-1.5 text-emerald-600 font-black text-[10px] uppercase">
-                          <BadgeCheck size={14} /> Terverifikasi
-                        </div>
+                        {user.status === 'nonaktif' ? (
+                          <div className="flex items-center gap-1.5 text-rose-600 font-black text-[10px] uppercase">
+                            <PowerOff size={14} /> Nonaktif
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-emerald-600 font-black text-[10px] uppercase">
+                            <BadgeCheck size={14} /> Aktif
+                          </div>
+                        )}
                       </td>
-                      <td className="px-8 py-5">
-                        <button className="p-2 text-stone-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
-                          <Trash2 size={18} />
-                        </button>
+                      <td className="px-8 py-5 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button 
+                            onClick={() => { setEditingUser(user); setEditName(user.name); }}
+                            className="p-2 text-stone-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                            title="Edit Nama"
+                          >
+                            <Edit size={18} />
+                          </button>
+                          
+                          {user.role !== 'admin' && (
+                            <button 
+                              onClick={() => handleToggleStatus(user)}
+                              className={`p-2 rounded-xl transition-all ${user.status === 'nonaktif' ? 'text-emerald-600 hover:bg-emerald-50' : 'text-rose-500 hover:bg-rose-50'}`}
+                              title={user.status === 'nonaktif' ? 'Aktifkan Akun' : 'Nonaktifkan Akun'}
+                            >
+                              {user.status === 'nonaktif' ? <CheckCircle size={18} /> : <PowerOff size={18} />}
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -168,7 +253,7 @@ export default function AdminUserManagement() {
                 <ShieldCheck size={32} />
               </div>
               <h2 className="text-2xl font-black text-stone-900 tracking-tight">Aktifkan Akun HR</h2>
-              <p className="text-stone-500 font-medium mt-2">Sistem akan secara otomatis memberikan role HR pada email ini.</p>
+              <p className="text-stone-500 font-medium mt-2">Sistem akan mendaftarkan akses HR menggunakan email perusahaan.</p>
             </div>
 
             {message.text && (
@@ -229,6 +314,39 @@ export default function AdminUserManagement() {
           </div>
         </div>
       )}
+
+      {/* MODAL EDIT NAMA LENGKAP */}
+      {editingUser && (
+        <div className="fixed inset-0 bg-stone-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-[2rem] p-8 shadow-2xl animate-in zoom-in-95 duration-200">
+            <h3 className="text-xl font-black text-stone-900 mb-2">Edit Nama Lengkap</h3>
+            <p className="text-sm text-stone-500 font-medium mb-6">Perbarui nama untuk akun {editingUser.email}</p>
+            
+            <input 
+              type="text" 
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              className="w-full px-5 py-4 bg-stone-50 rounded-2xl border border-stone-200 text-stone-900 font-bold focus:ring-4 focus:ring-blue-600/10 focus:border-blue-600 transition-all outline-none mb-6"
+            />
+            
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setEditingUser(null)}
+                className="flex-1 py-3.5 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold rounded-xl transition-all"
+              >
+                Batal
+              </button>
+              <button 
+                onClick={handleUpdateName}
+                className="flex-1 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl transition-all shadow-lg shadow-blue-600/20"
+              >
+                Simpan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
