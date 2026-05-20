@@ -8,6 +8,7 @@ import {
   MapPin, Loader2, X, CheckCircle2, Calendar, FileText, Sparkles,
   Briefcase, Inbox, ChevronLeft, ChevronRight, Link as LinkIcon
 } from 'lucide-react';
+import sessionManager from '@/app/lib/sessionManager'; 
 
 export default function KelolaLowongan() {
   const router = useRouter();
@@ -82,6 +83,14 @@ export default function KelolaLowongan() {
   const handleSubmit = async (e: React.FormEvent, targetStatus: string) => {
     e.preventDefault();
     setIsSubmitting(true);
+    const currentUser = sessionManager.getSession()?.user;
+    if (currentUser) {
+      await supabase.from('activity_logs').insert({
+        user_id: currentUser.user_id, // ID user yang lagi aktif nambah loker
+        activity: `JOB: Berhasil menambahkan lowongan baru posisi "${formData.title}"`
+      });
+    }
+
     try {
       const payload = { 
         ...formData, 
