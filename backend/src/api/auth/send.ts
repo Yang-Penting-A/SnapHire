@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import nodemailer from 'nodemailer';
+import { config } from '../../config/config';
 
 const router = Router();
 
@@ -7,8 +8,8 @@ const router = Router();
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
+    user: config.email.user,
+    pass: config.email.password,
   },
 });
 
@@ -21,10 +22,17 @@ router.post('/send-credential', async (req: Request, res: Response): Promise<any
     return res.status(400).json({ success: false, message: 'Data tidak lengkap, cok!' });
   }
 
+  if (!config.email.user || !config.email.password) {
+    return res.status(500).json({
+      success: false,
+      message: 'Konfigurasi email belum lengkap. Pastikan EMAIL_USER dan EMAIL_APP_PASSWORD sudah diisi.',
+    });
+  }
+
   try {
     // 3. Set Desain Konten Email HTML snapHire
     const mailOptions = {
-      from: `"snapHire Admin Team" <${process.env.EMAIL_USER}>`,
+      from: `"snapHire Admin Team" <${config.email.user}>`,
       to: email,
       subject: '🔥 Akses Akun HR snapHire Anda Telah Aktif!',
       html: `

@@ -1,22 +1,44 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SnapHire Frontend
 
 ## Getting Started
 
-First, run the development server:
+Copy `.env.example` to `.env.local` and fill in the required values.
+
+Required variables:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `NEXT_PUBLIC_API_URL`
+
+Then run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are used by `app/lib/supabase.ts`
+- `NEXT_PUBLIC_API_URL` is used by `app/lib/api.ts` and should point to the backend API, for example `http://localhost:8000/api`
+
+## Project Structure
+
+- `app/` - Next.js app router pages and components
+- `app/lib/` - API and session helpers
+- `public/` - Static assets
+
+## Build
+
+```bash
+npm run build
+```
+
+## Tech Stack
+
+- **Next.js** - React framework
+- **TypeScript** - Type safety
+- **Supabase** - Authentication and data access
+- **Tailwind CSS** - Styling
 
