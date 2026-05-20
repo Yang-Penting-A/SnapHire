@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/app/lib/supabase';
 import sessionManager from '@/app/lib/sessionManager';
 import Image from 'next/image';
 import { AlertCircle, Loader2 } from 'lucide-react';
 
-export default function AuthCallbackPage() {
+function AuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isProcessing, setIsProcessing] = useState(true);
@@ -81,7 +81,7 @@ export default function AuthCallbackPage() {
           .eq('email', email)
           .single();
 
-        if (checkError && checkError.code !== 'PGRST116') { 
+        if (checkError && checkError.code !== 'PGRST116') {
           throw new Error('Gagal melakukan verifikasi database.');
         }
 
@@ -128,8 +128,25 @@ export default function AuthCallbackPage() {
 
         // Store Session & Log Activity
         sessionManager.storeSession(token, userData);
+
+        const { error: logError } = await supabase.from('activity_logs').insert({
+          user_id: existingUser.user_id,
+          activity: `LOGIN: ${userData?.name || existingUser.name} masuk menggunakan Google OAuth`
+        });
+
+        if (logError) {
+          console.error('[LOG ERROR] Gagal mencatat log Google:', logError.message);
+        } else {
+          console.log('[LOG SUCCESS] Log Google Auth berhasil dicatat!');
+        }
+
+        if (logError) console.warn('Gagal mencatat log:', logError.message);
+
         await supabase.auth.signOut(); // Clean up if needed based on your arch
-        
+
+        console.log('[OAUTH CALLBACK] ✅ Login successful, redirecting...');
+
+        // Redirect based on role
         const role = userData?.role?.toLowerCase();
         if (role === 'admin') router.push('/admin');
         else if (role === 'hr') router.push('/hr');
@@ -203,5 +220,13 @@ export default function AuthCallbackPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function AuthCallbackPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <AuthCallbackContent />
+    </Suspense>
   );
 }

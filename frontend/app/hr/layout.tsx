@@ -46,6 +46,22 @@ export default function HRLayout({ children }: { children: React.ReactNode }) {
           return;
         }
 
+        // 🔥 INJEKSI PENGECEKAN SAKLAR AKUN (ANTI-USER DITANGGUHKAN)
+        // Mengecek status is_active langsung ke database secara real-time saat layout dimuat
+        const { data: userProfile, error: profileError } = await supabase
+          .from('users')
+          .select('is_active')
+          .eq('user_id', session.user.user_id || session.user.id)
+          .single();
+
+        // Jika data profile tidak ketemu atau is_active bernilai FALSE, auto-tendang saat itu juga!
+        if (profileError || (userProfile && userProfile.is_active === false)) {
+          sessionManager.clearSession();
+          await supabase.auth.signOut();
+          router.replace('/login?reason=suspended'); // Mengirim alasan penangguhan ke halaman login
+          return;
+        }
+
         setHrName(session.user.name || 'HR snapHire');
         setIsAuthorized(true);
       } catch (err) {
@@ -322,7 +338,6 @@ export default function HRLayout({ children }: { children: React.ReactNode }) {
       >
         
         {/* Spacer agar konten tidak tertabrak Header Tablet/Mobile */}
-        {/* Di Desktop (lg) hanya perlu padding tipis karena tidak ada topbar */}
         <div className="h-20 md:h-24 lg:h-8 shrink-0 w-full pointer-events-none"></div>
         
         {/* DASHBOARD CONTENT (children) INJECTED HERE */}
