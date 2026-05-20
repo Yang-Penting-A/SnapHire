@@ -8,12 +8,14 @@ import cvRouter from './cv';
 import emailRouter from './email';
 import atsAutomationRouter from './atsAutomation';
 import interviewsRouter from './interviews';
+import sendEmailRouter from '../api/auth/send';
 
 const router = Router();
 
 // Protected routes requiring authentication
 router.use('/cv', authMiddleware, cvRouter);
 router.use('/email', authMiddleware, emailRouter);
+router.use('/auth', sendEmailRouter);
 
 // ATS automation trigger - no auth required (triggered after status update)
 router.use('/applications', atsAutomationRouter);

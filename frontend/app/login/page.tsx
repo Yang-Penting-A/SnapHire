@@ -161,11 +161,15 @@ export default function LoginPage() {
 
       // catat activity log
       const { error: logError } = await supabase.from('activity_logs').insert({
-        user_id: authData.user.id,
+        user_id: userData.user_id,
         activity: `LOGIN: ${userData?.name || 'User'} masuk sebagai ${userData?.role || 'user'}`
       });
 
-      if (logError) console.error("Gagal mencatat log:", logError.message);
+      if (logError) {
+        console.error('[LOG ERROR] Gagal mencatat log manual:', logError.message);
+      } else {
+        console.log('[LOG SUCCESS] Log Manual berhasil dicatat!');
+      }
 
       const role = userData?.role?.toLowerCase();
       router.refresh();

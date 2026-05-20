@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/app/lib/supabase';
 import { 
   Users, Briefcase, FileCheck, Calendar, Sparkles, TrendingUp, 
-  Clock, Plus, ScanSearch, Target, UserMinus, Loader2, ArrowRight, CheckCircle2
+  Clock, Plus, ScanSearch, Target, UserMinus, Loader2, ArrowRight, CheckCircle2, Megaphone
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -15,6 +15,7 @@ import {
 export default function HRDashboard() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
+  const [announcements, setAnnouncements] = useState<any[]>([]);
   
   // Stats State
   const [stats, setStats] = useState({
@@ -49,13 +50,14 @@ export default function HRDashboard() {
       lastWeekDate.setDate(lastWeekDate.getDate() - 7);
 
       // 1. FETCH DATA (Ambil semua jobs tanpa filter status 'active' saja untuk analisis)
-      const [kandidatRes, jobsRes, appsRes] = await Promise.all([
+      const [kandidatRes, jobsRes, appsRes, announcementsRes] = await Promise.all([
         supabase.from('candidates').select('*', { count: 'exact', head: true }),
         supabase.from('jobs').select('job_id, title, status_job, due_date, created_at, applications(count)'),
         supabase.from('applications').select(`
           application_id, status_application, ai_score, created_at,
           candidates(name), jobs(title)
-        `)
+        `),
+        supabase.from('announcements').select('*').order('created_at', { ascending: false }).limit(3)
       ]);
 
       const allApps = appsRes.data || [];
@@ -124,6 +126,7 @@ export default function HRDashboard() {
       setRecentCandidates(allApps.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 5));
       setActiveJobsList(allJobs.slice(0, 5));
       setInterviewSchedule(todayInterviews.slice(0, 4));
+      setAnnouncements(announcementsRes.data || []);
 
     } catch (err) {
       console.error("Dashboard Sync Error:", err);
@@ -195,8 +198,32 @@ export default function HRDashboard() {
         </div>
       </div>
 
+      {/* WORKSPACE AREA SCROLLABLE */}
       <div className="flex-1 overflow-y-auto px-4 py-8 space-y-12 custom-scrollbar">
         
+        {/* PAPAN PENGUMUMAN DARI ADMIN */}
+        {announcements.length > 0 && (
+          <div className="bg-gradient-to-br from-amber-50 to-orange-50/20 p-6 md:p-8 rounded-[2.5rem] border border-amber-100/70 shadow-inner space-y-5 animate-in slide-in-from-top duration-500">
+            <div className="flex items-center gap-2.5 text-amber-800">
+              <Megaphone size={18} className="animate-bounce" />
+              <h2 className="text-[11px] font-black uppercase tracking-[0.2em]">Papan Pengumuman Internal Admin</h2>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {announcements.map((ann: any) => (
+                <div key={ann.id} className="bg-white p-5 rounded-2xl border border-amber-100/50 shadow-sm space-y-3 flex flex-col justify-between hover:shadow-md transition-shadow">
+                  <div className="space-y-1">
+                    <h3 className="font-black text-stone-900 text-sm tracking-tight truncate">{ann.title}</h3>
+                    <p className="text-stone-600 text-xs font-medium line-clamp-3 leading-relaxed whitespace-pre-line">{ann.content}</p>
+                  </div>
+                  <span className="text-[9px] font-black text-stone-400 uppercase tracking-wider block pt-1">
+                    📢 {new Date(ann.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* ROW 1: KPI CARDS */}
         <div className="space-y-5">
           <h2 className="text-[11px] font-black text-stone-400 uppercase tracking-[0.3em] ml-1">Ringkasan Hari Ini</h2>
@@ -208,7 +235,7 @@ export default function HRDashboard() {
           </div>
         </div>
 
-        {/* ROW 2: PIPELINE REKRUTMEN (FIXED HOVER & CLIPPING) */}
+        {/* ROW 2: PIPELINE REKRUTMEN */}
         <div className="bg-white rounded-[2.5rem] p-8 border border-stone-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
           <div className="flex items-center justify-between mb-10">
             <h3 className="font-black text-stone-900 uppercase text-[12px] tracking-[0.2em] flex items-center gap-3">
@@ -217,9 +244,8 @@ export default function HRDashboard() {
             <p className="text-stone-700 text-[10px] font-black uppercase bg-stone-100 px-4 py-1.5 rounded-full border border-stone-100">Total {stats.totalCandidates} Pelamar</p>
           </div>
           
-          {/* overflow-hidden dihapus agar tooltip terlihat */}
           <div className="flex w-full h-12 rounded-2xl gap-0.5 mb-6 border border-stone-50 p-1 bg-stone-50 relative">
-            {pipeline.map((stage, i) => (
+            {pipeline.map((stage: any, i: number) => (
               <div 
                 key={i} 
                 style={{ width: `${(stage.count / Math.max(1, stats.totalCandidates)) * 100}%`, backgroundColor: stage.color }}
@@ -229,7 +255,6 @@ export default function HRDashboard() {
                 `}
               >
                 {stage.count > 0 && <span>{stage.count}</span>}
-                {/* TOOLTIP FIX */}
                 <div className="absolute bottom-full mb-3 hidden group-hover:block bg-stone-900 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap z-[100] shadow-xl">
                     {stage.name}: {stage.count} Pelamar
                 </div>
@@ -238,7 +263,7 @@ export default function HRDashboard() {
           </div>
 
           <div className="flex flex-wrap justify-center items-center gap-x-8 gap-y-2">
-            {pipeline.map((stage, i) => (
+            {pipeline.map((stage: any, i: number) => (
                <div key={i} className="flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: stage.color }}></div>
                   <span className="text-[9px] font-black text-stone-400 uppercase tracking-widest">{stage.name} ({stage.count})</span>
@@ -247,7 +272,7 @@ export default function HRDashboard() {
           </div>
         </div>
 
-        {/* ROW 3: CHARTS (FIXED FONTWEIGHT) */}
+        {/* ROW 3: CHARTS */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <ChartBox title="Tren Pelamar (7 Hari Terakhir)">
                 <ResponsiveContainer width="100%" height="100%">
@@ -280,6 +305,7 @@ export default function HRDashboard() {
             </ChartBox>
         </div>
 
+        {/* ROW 4: DATA METRICS & TABLES */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
             <div className="space-y-4">
                 <h3 className="text-[11px] font-black text-stone-400 uppercase tracking-widest ml-1 mb-4">Metrik Kualitas</h3>
@@ -292,7 +318,7 @@ export default function HRDashboard() {
             <div className="lg:col-span-2 bg-white rounded-[2.5rem] p-8 border border-stone-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
                 <h3 className="font-black text-stone-900 uppercase text-[11px] tracking-[0.2em] mb-8">Kandidat Terbaru</h3>
                 <div className="space-y-6">
-                    {recentCandidates.length > 0 ? recentCandidates.map((c, i) => (
+                    {recentCandidates.length > 0 ? recentCandidates.map((c: any, i: number) => (
                         <div key={i} className="flex items-center justify-between group cursor-pointer" onClick={() => router.push(`/hr/applicants/${c.application_id}`)}>
                             <div className="flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-black text-sm border border-blue-100 transition-transform group-hover:scale-110">
@@ -314,7 +340,7 @@ export default function HRDashboard() {
             <div className="bg-white rounded-[2.5rem] p-8 border border-stone-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
                 <h3 className="font-black text-stone-900 uppercase text-[11px] tracking-[0.2em] mb-8 text-center">Status Lowongan</h3>
                 <div className="space-y-7">
-                  {activeJobsList.map((j, i) => (
+                  {activeJobsList.map((j: any, i: number) => (
                     <div key={i} className="space-y-2.5">
                       <div className="flex justify-between items-center text-[10px] font-black uppercase">
                         <span className="text-stone-800 truncate w-2/3">● {j.title}</span>
@@ -329,10 +355,11 @@ export default function HRDashboard() {
             </div>
         </div>
 
+        {/* ROW 5: INTERVIEW SCHEDULES */}
         <div className="space-y-6">
             <h3 className="text-[11px] font-black text-stone-400 uppercase tracking-[0.3em] ml-1">Jadwal Interview Mendatang</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 pb-10">
-                {interviewSchedule.length > 0 ? interviewSchedule.map((item, i) => (
+                {interviewSchedule.length > 0 ? interviewSchedule.map((item: any, i: number) => (
                     <div key={i} className="bg-white p-7 rounded-[2rem] border border-stone-100 shadow-sm flex flex-col justify-between hover:shadow-xl hover:border-blue-200 transition-all group">
                         <div>
                             <span className="text-[10px] font-black text-blue-500 uppercase tracking-[0.2em] flex items-center gap-2">
@@ -398,6 +425,7 @@ function ChartBox({ title, children }: any) {
   );
 }
 
+// 🔥 FIX: Parameter status diberikan type explicit string
 function getStatusBadgeColor(status: string) {
   switch (status?.toLowerCase()) {
     case 'hired': return 'bg-emerald-50 text-emerald-700 border-emerald-100';

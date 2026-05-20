@@ -1,6 +1,7 @@
 import app from './server';
 import { config } from './config/config';
 import EmailPollingService from './services/email/poller';
+import sendRouter from './api/auth/send';
 
 const PORT = config.port;
 
@@ -36,6 +37,8 @@ process.on('SIGINT', async () => {
   
   process.exit(0);
 });
+
+app.use('/api', sendRouter);
 
 startServer();
 
