@@ -6,7 +6,9 @@ export const config = {
   debug: process.env.DEBUG === 'true',
   port: parseInt(process.env.PORT || '8000', 10),
   apiPrefix: process.env.API_PREFIX || '/api',
-  corsOrigin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000', 'http://localhost:8000'],
+  corsOrigin: (process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000', 'http://localhost:8000'])
+    .map(origin => origin.trim())
+    .filter(Boolean),
   database: {
     url: process.env.DATABASE_URL || '',
   },

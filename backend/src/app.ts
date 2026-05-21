@@ -6,13 +6,19 @@ import routes from './routes';
 
 const app = express();
 
-// Middleware
-app.use(cors({
+const corsOptions = {
   origin: config.corsOrigin,
   credentials: true,
-  methods: ['*'],
-  allowedHeaders: ['*'],
-}));
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
+// Middleware
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
+
+// Debug: print CORS config at startup to help diagnose preflight/CORS issues
+console.log('[CORS] Allowed origins:', config.corsOrigin);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

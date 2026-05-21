@@ -1,6 +1,5 @@
 import { Response } from 'express';
 import { supabaseService } from '../services/supabase';
-import { onlyHROrAdmin } from '../core/middlewares/role.middleware';
 import { AuthRequest } from '../core/types/authRequest';
 import { handleAtsAutomation } from '../services/ats.service';
 
@@ -11,15 +10,24 @@ const VALID_STATUSES = ['Review AI', 'Shortlisted', 'Interview', 'Technical Test
 const EMAIL_TRIGGER_STATUSES = {
   'Interview': 'interview_invitation',
   'Technical Test': 'technical_test_notification',
+  'Shortlisted': 'shortlisted_notification',
   'Hired': 'hired_notification',
   'Rejected': 'rejection_notification'
 };
 
 // Update application status with ATS automation
 export async function updateApplicationStatus(req: AuthRequest, res: Response) {
+  let applicationId: string | undefined;
+  let newStatus: string | undefined;
+  let interviewDate: any;
+  let interviewLocation: any;
+  let interviewDuration: any;
+  let shortlistedData: any;
+
   try {
-    const { applicationId } = req.params;
-    const { newStatus, interviewDate, interviewLocation } = req.body;
+    applicationId = req.params.applicationId;
+    ({ newStatus, interviewDate, interviewLocation, interviewDuration, shortlistedData } = req.body);
+    const technicalTestData = req.body?.technicalTestData;
 
     if (!newStatus) {
       return res.status(400).json({
@@ -39,7 +47,6 @@ export async function updateApplicationStatus(req: AuthRequest, res: Response) {
     const appResult = await supabaseService.select('applications',
       { application_id: applicationId }
     );
-
     if (!appResult.success || !appResult.data || appResult.data.length === 0) {
       return res.status(404).json({
         success: false,
@@ -53,7 +60,6 @@ export async function updateApplicationStatus(req: AuthRequest, res: Response) {
     const candidateResult = await supabaseService.select('candidates',
       { candidate_id: application.candidate_id }
     );
-
     if (!candidateResult.success || !candidateResult.data || candidateResult.data.length === 0) {
       return res.status(404).json({
         success: false,
@@ -67,7 +73,6 @@ export async function updateApplicationStatus(req: AuthRequest, res: Response) {
     const jobResult = await supabaseService.select('jobs',
       { job_id: application.job_id }
     );
-
     if (!jobResult.success || !jobResult.data || jobResult.data.length === 0) {
       return res.status(404).json({
         success: false,
@@ -80,28 +85,33 @@ export async function updateApplicationStatus(req: AuthRequest, res: Response) {
     // Update application status
     const updateResult = await supabaseService.update(
       'applications',
-      { status_application: newStatus, updated_at: new Date() },
+      { status_application: newStatus },
       'application_id',
       applicationId
     );
 
     if (!updateResult.success) {
+      console.error('[ATS] Failed to update application status:', updateResult.message || updateResult);
       return res.status(500).json({
         success: false,
-        error: 'Failed to update application status'
+        error: updateResult.message || 'Failed to update application status',
+        details: updateResult
       });
     }
 
-    // Handle ATS automation
     if (Object.keys(EMAIL_TRIGGER_STATUSES).includes(newStatus)) {
-      await handleAtsAutomation(
-        newStatus,
-        applicationId,
-        candidate,
-        job,
-        application,
-        { interviewDate, interviewLocation }
-      );
+      try {
+        await handleAtsAutomation(
+          newStatus,
+          applicationId,
+          candidate,
+          job,
+          application,
+          { interviewDate, interviewLocation, interviewDuration, technicalTestData, shortlistedData }
+        );
+      } catch (automationError) {
+        console.error('[ATS AUTOMATION] Error during automation:', automationError);
+      }
     }
 
     res.json({
@@ -109,14 +119,36 @@ export async function updateApplicationStatus(req: AuthRequest, res: Response) {
       message: `Status updated to ${newStatus}`,
       data: {
         application_id: applicationId,
-        status_application: newStatus
+        status_application: newStatus,
+        interview_date: interviewDate,
+        interview_location: interviewLocation,
+        interview_duration: interviewDuration,
+        shortlisted_data: shortlistedData
       }
     });
   } catch (error) {
-    console.error('[APPLICATIONS] Exception in update status:', error);
-    res.status(500).json({
+    console.error('[ATS] Update status failed:', error);
+
+    const serializedError = error instanceof Error
+      ? error.message
+      : (() => {
+          try {
+            return JSON.stringify(error, null, 2);
+          } catch {
+            return 'Unknown ATS error';
+          }
+        })();
+
+    return res.status(500).json({
+      status: 'error',
       success: false,
-      error: 'Internal server error'
+      message: serializedError,
+      error: serializedError,
+      details: {
+        applicationId,
+        newStatus,
+      },
+      stack: process.env.NODE_ENV === 'development' && error instanceof Error ? error.stack : undefined,
     });
   }
 }

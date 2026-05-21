@@ -5,7 +5,7 @@ import { AuthRequest } from '../core/types/authRequest';
 
 export async function sendInterviewInvitation(req: AuthRequest, res: Response) {
   try {
-    const { applicationId, candidateId, candidateEmail, candidateName, jobTitle, interviewDate, interviewLocation } = req.body;
+    const { applicationId, candidateId, candidateEmail, candidateName, jobTitle, interviewDate, interviewLocation, interviewDuration } = req.body;
 
     if (!applicationId || !candidateEmail || !candidateName || !jobTitle || !interviewDate || !interviewLocation) {
       return res.status(400).json({
@@ -21,7 +21,8 @@ export async function sendInterviewInvitation(req: AuthRequest, res: Response) {
       jobTitle,
       interviewDate,
       interviewLocation,
-      applicationId
+      applicationId,
+      interviewDuration
     );
 
     if (!result.success) {

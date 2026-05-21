@@ -16,7 +16,7 @@ async function startServer(): Promise<void> {
     });
 
     // Start Express server immediately
-    app.listen(PORT, () => {
+    app.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 Server running on http://localhost:${PORT}`);
       console.log(`📚 API Docs available at http://localhost:${PORT}${config.apiPrefix}`);
       console.log(`🔧 Environment: ${config.debug ? 'development' : 'production'}`);

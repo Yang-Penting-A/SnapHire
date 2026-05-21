@@ -4,6 +4,7 @@ import React, { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/app/lib/supabase';
 import sessionManager from '@/app/lib/sessionManager';
+import { buildApiUrl } from '@/app/lib/api';
 import Image from 'next/image';
 import { AlertCircle, Loader2 } from 'lucide-react';
 
@@ -103,8 +104,7 @@ function AuthCallbackContent() {
         }
 
         // Call Backend
-        const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
-        const response = await fetch(`${backendUrl}/auth/oauth-callback`, {
+        const response = await fetch(buildApiUrl('/auth/oauth-callback'), {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,

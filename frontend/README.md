@@ -21,7 +21,8 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 ## Environment
 
 - `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are used by `app/lib/supabase.ts`
-- `NEXT_PUBLIC_API_URL` is used by `app/lib/api.ts` and should point to the backend API, for example `http://localhost:8000/api`
+- `NEXT_PUBLIC_API_URL` is used by `app/lib/api.ts` and should point to the backend host, for example `http://localhost:8000`
+- The shared API helper adds the `/api` prefix automatically
 
 ## Project Structure
 

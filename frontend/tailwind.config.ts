@@ -8,11 +8,10 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Meniban warna 'blue' bawaan Tailwind dengan warna brand kamu
         blue: {
           50: '#F0F4FC',  // Warna background kotak icon
           500: '#2670E8', // Biru medium (untuk logo di footer)
-          600: '#1E62D0', // WARNA UTAMA KAMU (Tombol, Teks, dll)
+          600: '#1E62D0', // Warna utama (Tombol, Teks, dll)
           700: '#154A9E', // Warna saat tombol di-hover
         }
       }

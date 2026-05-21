@@ -46,11 +46,11 @@ function generateTechnicalTestInvitationHTML(data: TechnicalTestInvitationData):
     assessmentLink,
     deadlineDate,
     deadlineTime,
-    estimatedDuration = '60 minutes',
+    estimatedDuration,
     meetingLink,
     scheduleDate,
     scheduleTime,
-    duration = '60 minutes',
+    duration,
     instructions,
     additionalNotes,
     hireName = 'Recruitment Team',
@@ -61,6 +61,26 @@ function generateTechnicalTestInvitationHTML(data: TechnicalTestInvitationData):
   const displayHireName = (hireName && !hireName.toLowerCase().includes('recruitment team'))
     ? `${hireName} - Recruitment Team`
     : 'Recruitment Team';
+
+  const formatDuration = (value?: string) => {
+    if (!value) {
+      return '';
+    }
+
+    const normalizedValue = value.trim();
+    if (!normalizedValue) {
+      return '';
+    }
+
+    if (/\b(minute|minutes|menit)\b/i.test(normalizedValue)) {
+      return normalizedValue;
+    }
+
+    return `${normalizedValue} minutes`;
+  };
+
+  const displayEstimatedDuration = formatDuration(estimatedDuration);
+  const displayDuration = formatDuration(duration);
 
   // Determine header color and CTA button text based on test type
   const getHeaderColor = () => {
@@ -132,10 +152,10 @@ function generateTechnicalTestInvitationHTML(data: TechnicalTestInvitationData):
             </div>
           ` : ''}
           
-          ${estimatedDuration ? `
+          ${displayEstimatedDuration ? `
             <div class="detail-row">
               <div class="detail-label">Estimated Time</div>
-              <div class="detail-value">${estimatedDuration}</div>
+              <div class="detail-value">${displayEstimatedDuration}</div>
             </div>
           ` : ''}
         </div>
@@ -155,10 +175,10 @@ function generateTechnicalTestInvitationHTML(data: TechnicalTestInvitationData):
             </div>
           ` : ''}
           
-          ${duration ? `
+          ${displayDuration ? `
             <div class="detail-row">
               <div class="detail-label">Duration</div>
-              <div class="detail-value">${duration}</div>
+              <div class="detail-value">${displayDuration}</div>
             </div>
           ` : ''}
           

@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../lib/supabase';
 import { Mail, Lock, LogIn, AlertCircle, Loader2, Eye, EyeOff } from 'lucide-react';
 import sessionManager from '../lib/sessionManager';
+import { buildApiUrl } from '../lib/api';
 
 function LoginContent() {
   const router = useRouter();
@@ -139,8 +140,7 @@ function LoginContent() {
       const token = sessionData.session.access_token;
 
       // Backend verify token
-      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
-      const response = await fetch(`${backendUrl}/login`, {
+      const response = await fetch(buildApiUrl('/login'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

@@ -22,7 +22,7 @@ router.use('/email', emailRouter);
 // Add new send-email endpoint from incoming branch (kept separate under /auth)
 router.use('/auth', sendEmailRouter);
 
-// ATS automation trigger - no auth required (triggered after status update)
+// ATS automation trigger - protected endpoint (requires authenticated HR/Admin)
 router.use('/applications', atsAutomationRouter);
 
 // Public interview confirmation endpoint (token confirmation)

@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Mail, Lock, AlertCircle, Loader2, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
+import { buildApiUrl } from '@/app/lib/api';
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
@@ -63,8 +64,7 @@ export default function ForgotPasswordPage() {
     setIsLoading(true);
 
     try {
-      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
-      const response = await fetch(`${backendUrl}/auth/reset-password`, {
+      const response = await fetch(buildApiUrl('/auth/reset-password'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

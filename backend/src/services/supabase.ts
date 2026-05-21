@@ -13,6 +13,25 @@ export const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Helper functions for common database operations
 export const supabaseService = {
+  serializeError(error: unknown) {
+    if (error instanceof Error) {
+      return {
+        message: error.message,
+        stack: error.stack,
+      };
+    }
+
+    try {
+      return {
+        message: JSON.stringify(error, null, 2),
+      };
+    } catch {
+      return {
+        message: String(error),
+      };
+    }
+  },
+
   // Get client instance
   getClient: () => supabase,
 
@@ -23,8 +42,9 @@ export const supabaseService = {
       if (error) throw error;
       return { success: true, message: 'Supabase connection successful' };
     } catch (error) {
-      console.error('[DB] Connection failed: ' + error);
-      return { success: false, message: 'Failed to connect to Supabase' };
+      console.error('[DB] Connection failed:', error);
+      console.dir(error, { depth: null });
+      return { success: false, message: 'Failed to connect to Supabase', details: supabaseService.serializeError(error) };
     }
   },
 
@@ -41,8 +61,9 @@ export const supabaseService = {
       if (error) throw error;
       return { success: true, data };
     } catch (error) {
-      console.error('[DB] Select error: ' + error);
-      return { success: false, message: String(error) };
+      console.error('[DB] Select error:', error);
+      console.dir(error, { depth: null });
+      return { success: false, message: supabaseService.serializeError(error).message, details: supabaseService.serializeError(error) };
     }
   },
 
@@ -56,8 +77,9 @@ export const supabaseService = {
       if (error) throw error;
       return { success: true, data: insertedData };
     } catch (error) {
-      console.error('[DB] Insert error: ' + error);
-      return { success: false, message: String(error) };
+      console.error('[DB] Insert error:', error);
+      console.dir(error, { depth: null });
+      return { success: false, message: supabaseService.serializeError(error).message, details: supabaseService.serializeError(error) };
     }
   },
 
@@ -72,8 +94,9 @@ export const supabaseService = {
       if (error) throw error;
       return { success: true, data: updatedData };
     } catch (error) {
-      console.error('[DB] Update error: ' + error);
-      return { success: false, message: String(error) };
+      console.error('[DB] Update error:', error);
+      console.dir(error, { depth: null });
+      return { success: false, message: supabaseService.serializeError(error).message, details: supabaseService.serializeError(error) };
     }
   },
 
@@ -87,8 +110,9 @@ export const supabaseService = {
       if (error) throw error;
       return { success: true, message: 'Deleted successfully' };
     } catch (error) {
-      console.error('[DB] Delete error: ' + error);
-      return { success: false, message: String(error) };
+      console.error('[DB] Delete error:', error);
+      console.dir(error, { depth: null });
+      return { success: false, message: supabaseService.serializeError(error).message, details: supabaseService.serializeError(error) };
     }
   },
 };

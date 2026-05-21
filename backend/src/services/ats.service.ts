@@ -1,17 +1,33 @@
 import { supabaseService } from '../services/supabase';
 import ATSEmailService from '../services/email/sendEmail';
 
-// Handle ATS automation for specific statuses
 export async function handleAtsAutomation(
   status: string,
   applicationId: string,
   candidate: any,
   job: any,
   application: any,
-  interviewDetails?: { interviewDate?: string; interviewLocation?: string }
+  automationData?: {
+    interviewDate?: string;
+    interviewLocation?: string;
+    interviewDuration?: string;
+    technicalTestData?: any;
+    shortlistedData?: any;
+  }
 ) {
   try {
-    const emailService = new ATSEmailService();
+    if (!candidate) throw new Error('Missing candidate data');
+    if (!job) throw new Error('Missing job data');
+    if (!applicationId) throw new Error('Missing applicationId');
+    
+    let emailService: ATSEmailService;
+    try {
+      emailService = new ATSEmailService();
+    } catch (initError) {
+      const errorMsg = initError instanceof Error ? initError.message : String(initError);
+      console.error('[ATS SERVICE EMAIL INIT ERROR]', errorMsg);
+      throw new Error(`Failed to initialize email service: ${errorMsg}`);
+    }
 
     switch (status) {
       case 'Interview':
@@ -20,7 +36,7 @@ export async function handleAtsAutomation(
           candidate,
           job,
           emailService,
-          interviewDetails
+          automationData
         );
         break;
 
@@ -29,7 +45,8 @@ export async function handleAtsAutomation(
           applicationId,
           candidate,
           job,
-          emailService
+          emailService,
+          automationData?.technicalTestData
         );
         break;
 
@@ -50,41 +67,66 @@ export async function handleAtsAutomation(
           emailService
         );
         break;
+
+      case 'Shortlisted':
+        await handleShortlistedAutomation(
+          applicationId,
+          candidate,
+          job,
+          emailService,
+          automationData?.shortlistedData
+        );
+        break;
     }
   } catch (error) {
-    console.error('[ATS AUTOMATION] Error:', error);
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error('[ATS SERVICE] Automation failed:', errorMsg);
+    throw error;
   }
 }
 
-// Interview automation
 async function handleInterviewAutomation(
   applicationId: string,
   candidate: any,
   job: any,
   emailService: ATSEmailService,
-  interviewDetails?: { interviewDate?: string; interviewLocation?: string }
+  interviewDetails?: { interviewDate?: string; interviewLocation?: string; interviewDuration?: string }
 ) {
   try {
     const interviewDate = interviewDetails?.interviewDate || 'To be scheduled';
     const interviewLocation = interviewDetails?.interviewLocation || 'TBD - Check email for details';
+    const interviewDuration = interviewDetails?.interviewDuration?.trim();
 
-    const appUpdateResult = await supabaseService.update(
+    const baseUpdateData = {
+      confirmation_status: 'PENDING',
+      interview_date: interviewDate,
+      interview_location: interviewLocation,
+    };
+
+    const updateData = interviewDuration
+      ? { ...baseUpdateData, interview_duration: interviewDuration }
+      : baseUpdateData;
+
+    let appUpdateResult = await supabaseService.update(
       'applications',
-      {
-        confirmation_status: 'PENDING',
-        interview_date: interviewDate,
-        interview_location: interviewLocation
-      },
+      updateData,
       'application_id',
       applicationId
     );
+
+    if (!appUpdateResult.success && interviewDuration) {
+      appUpdateResult = await supabaseService.update(
+        'applications',
+        baseUpdateData,
+        'application_id',
+        applicationId
+      );
+    }
 
     if (!appUpdateResult.success) {
       console.error('[INTERVIEW AUTOMATION] Failed to update applications table:', appUpdateResult.message);
       return;
     }
-
-    console.log('[INTERVIEW AUTOMATION] Applications table updated with confirmation_status=PENDING');
 
     const emailResult = await emailService.sendInterviewInvitation(
       candidate.email,
@@ -92,22 +134,19 @@ async function handleInterviewAutomation(
       job.title,
       interviewDate,
       interviewLocation,
-      applicationId
+      applicationId,
+      interviewDuration
     );
 
     if (!emailResult.success) {
       console.error('[INTERVIEW AUTOMATION] Failed to send email:', emailResult.error);
-    } else {
-      console.log('[INTERVIEW AUTOMATION] Email sent successfully for application:', applicationId);
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('[INTERVIEW AUTOMATION] Exception:', errorMessage);
-    console.error('[INTERVIEW AUTOMATION] Stack:', error instanceof Error ? error.stack : 'N/A');
   }
 }
 
-// Technical test automation
 async function handleTechnicalTestAutomation(
   applicationId: string,
   candidate: any,
@@ -116,13 +155,9 @@ async function handleTechnicalTestAutomation(
   testData?: any
 ) {
   try {
-    console.log('[TECHNICAL TEST AUTOMATION] Starting for application:', applicationId);
-    console.log('[TECHNICAL TEST AUTOMATION] Test data:', testData);
-    console.log('[TECHNICAL TEST AUTOMATION] Email details:', {
-      to: candidate.email,
-      candidateName: candidate.name,
-      jobTitle: job.title
-    });
+    if (!candidate?.email) throw new Error('Candidate email missing');
+    if (!candidate?.name) throw new Error('Candidate name missing');
+    if (!job?.title) throw new Error('Job title missing');
 
     const testType = testData?.testType || 'Assessment';
 
@@ -151,24 +186,15 @@ async function handleTechnicalTestAutomation(
     );
 
     if (!emailResult.success) {
-      console.error('[TECHNICAL TEST AUTOMATION] Failed to send email:', {
-        success: emailResult.success,
-        error: emailResult.error
-      });
-    } else {
-      console.log('[TECHNICAL TEST AUTOMATION] Email sent successfully:', {
-        messageId: emailResult.messageId,
-        to: candidate.email
-      });
+      throw new Error(`Failed to send email: ${emailResult.error}`);
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('[TECHNICAL TEST AUTOMATION] Exception:', errorMessage);
-    console.error('[TECHNICAL TEST AUTOMATION] Stack:', error instanceof Error ? error.stack : 'N/A');
+    throw error;
   }
 }
 
-// Hired automation
 async function handleHiredAutomation(
   applicationId: string,
   candidate: any,
@@ -177,13 +203,9 @@ async function handleHiredAutomation(
   hiredData?: any
 ) {
   try {
-    console.log('[HIRED AUTOMATION] Starting for application:', applicationId);
-    console.log('[HIRED AUTOMATION] Hired data:', hiredData);
-    console.log('[HIRED AUTOMATION] Email details:', {
-      to: candidate.email,
-      candidateName: candidate.name,
-      jobTitle: job.title
-    });
+    if (!candidate?.email) throw new Error('Candidate email missing');
+    if (!candidate?.name) throw new Error('Candidate name missing');
+    if (!job?.title) throw new Error('Job title missing');
 
     const emailHiredData = {
       candidateName: candidate.name,
@@ -204,24 +226,15 @@ async function handleHiredAutomation(
     );
 
     if (!emailResult.success) {
-      console.error('[HIRED AUTOMATION] Failed to send email:', {
-        success: emailResult.success,
-        error: emailResult.error
-      });
-    } else {
-      console.log('[HIRED AUTOMATION] Email sent successfully:', {
-        messageId: emailResult.messageId,
-        to: candidate.email
-      });
+      throw new Error(`Failed to send email: ${emailResult.error}`);
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('[HIRED AUTOMATION] Exception:', errorMessage);
-    console.error('[HIRED AUTOMATION] Stack:', error instanceof Error ? error.stack : 'N/A');
+    throw error;
   }
 }
 
-// Rejection automation
 async function handleRejectionAutomation(
   applicationId: string,
   candidate: any,
@@ -230,13 +243,9 @@ async function handleRejectionAutomation(
   rejectionData?: any
 ) {
   try {
-    console.log('[REJECTION AUTOMATION] Starting for application:', applicationId);
-    console.log('[REJECTION AUTOMATION] Rejection data:', rejectionData);
-    console.log('[REJECTION AUTOMATION] Email details:', {
-      to: candidate.email,
-      candidateName: candidate.name,
-      jobTitle: job.title
-    });
+    if (!candidate?.email) throw new Error('Candidate email missing');
+    if (!candidate?.name) throw new Error('Candidate name missing');
+    if (!job?.title) throw new Error('Job title missing');
 
     const emailRejectionData = {
       candidateName: candidate.name,
@@ -253,24 +262,15 @@ async function handleRejectionAutomation(
     );
 
     if (!emailResult.success) {
-      console.error('[REJECTION AUTOMATION] Failed to send email:', {
-        success: emailResult.success,
-        error: emailResult.error
-      });
-    } else {
-      console.log('[REJECTION AUTOMATION] Email sent successfully:', {
-        messageId: emailResult.messageId,
-        to: candidate.email
-      });
+      throw new Error(`Failed to send email: ${emailResult.error}`);
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('[REJECTION AUTOMATION] Exception:', errorMessage);
-    console.error('[REJECTION AUTOMATION] Stack:', error instanceof Error ? error.stack : 'N/A');
+    throw error;
   }
 }
 
-// Shortlisted automation
 async function handleShortlistedAutomation(
   applicationId: string,
   candidate: any,
@@ -279,13 +279,9 @@ async function handleShortlistedAutomation(
   shortlistData?: any
 ) {
   try {
-    console.log('[SHORTLISTED AUTOMATION] Starting for application:', applicationId);
-    console.log('[SHORTLISTED AUTOMATION] Shortlist data:', shortlistData);
-    console.log('[SHORTLISTED AUTOMATION] Email details:', {
-      to: candidate.email,
-      candidateName: candidate.name,
-      jobTitle: job.title
-    });
+    if (!candidate?.email) throw new Error('Candidate email missing');
+    if (!candidate?.name) throw new Error('Candidate name missing');
+    if (!job?.title) throw new Error('Job title missing');
 
     const emailShortlistData = {
       candidateName: candidate.name,
@@ -302,20 +298,12 @@ async function handleShortlistedAutomation(
     );
 
     if (!emailResult.success) {
-      console.error('[SHORTLISTED AUTOMATION] Failed to send email:', {
-        success: emailResult.success,
-        error: emailResult.error
-      });
-    } else {
-      console.log('[SHORTLISTED AUTOMATION] Email sent successfully:', {
-        messageId: emailResult.messageId,
-        to: candidate.email
-      });
+      throw new Error(`Failed to send email: ${emailResult.error}`);
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('[SHORTLISTED AUTOMATION] Exception:', errorMessage);
-    console.error('[SHORTLISTED AUTOMATION] Stack:', error instanceof Error ? error.stack : 'N/A');
+    throw error;
   }
 }
 

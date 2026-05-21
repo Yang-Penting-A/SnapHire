@@ -58,10 +58,6 @@ class ATSEmailService {
     this.emailFrom = `SnapHire <${emailUser}>`;
     this.frontendUrl = frontendUrl;
 
-    console.log('[ATS Email Service] Initialized with Gmail SMTP:', {
-      user: emailUser,
-      frontendUrl: frontendUrl
-    });
   }
 
   private getBackendBaseUrl(): string {
@@ -83,7 +79,7 @@ class ATSEmailService {
   async sendEmail(payload: EmailPayload): Promise<SendEmailResult> {
     try {
       if (!payload.to || !payload.subject || !payload.html) {
-        console.warn('[ATS Email Service] Missing required email fields:', {
+        console.warn('[ATS Email Service] Missing email fields:', {
           hasTo: !!payload.to,
           hasSubject: !!payload.subject,
           hasHtml: !!payload.html
@@ -94,13 +90,6 @@ class ATSEmailService {
         };
       }
 
-      console.log('[ATS Email Service] Preparing to send email:', {
-        from: this.emailFrom,
-        to: payload.to,
-        subject: payload.subject,
-        htmlLength: payload.html.length
-      });
-
       const response = await this.transporter.sendMail({
         from: this.emailFrom,
         to: payload.to,
@@ -109,23 +98,21 @@ class ATSEmailService {
         replyTo: payload.replyTo || this.emailFrom,
       });
 
-      console.log('[ATS Email Service] Email sent successfully:', {
-        to: payload.to,
-        messageId: response.messageId,
-        response: response.response
-      });
-
       return {
         success: true,
         messageId: response.messageId,
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      const errorStack = error instanceof Error ? error.stack : '';
-      console.error('[ATS Email Service] Exception sending email:', {
-        message: errorMessage,
-        stack: errorStack
-      });
+      const errorMessage = error instanceof Error
+        ? error.message
+        : (() => {
+            try {
+              return JSON.stringify(error, null, 2);
+            } catch {
+              return String(error);
+            }
+          })();
+      console.error('[ATS Email Service] Failed to send email:', errorMessage);
       return {
         success: false,
         error: errorMessage,
@@ -150,26 +137,13 @@ class ATSEmailService {
     jobTitle: string,
     interviewDate: string,
     interviewLocation: string,
-    applicationId: string
+    applicationId: string,
+    interviewDuration?: string
   ): Promise<SendEmailResult> {
     try {
-      console.log('[ATS Email Service] sendInterviewInvitation called with:', {
-        candidateEmail,
-        candidateName,
-        jobTitle,
-        interviewDate,
-        interviewLocation,
-        applicationId
-      });
-
       const backendBase = this.getBackendBaseUrl();
-      // Simplified direct response links using application_id (no token)
       const confirmationLink = `${backendBase}${config.apiPrefix}/interviews/respond?id=${applicationId}&status=CONFIRMED`;
       const declineLink = `${backendBase}${config.apiPrefix}/interviews/respond?id=${applicationId}&status=DECLINED`;
-      console.log('[ATS Email Service] Confirmation link built:', confirmationLink);
-      console.log('[ATS Email Service] Decline link built:', declineLink);
-
-      // Build HTML email content using template
       const htmlContent = generateInterviewInvitationHTML({
         candidateName,
         jobTitle,
@@ -177,9 +151,8 @@ class ATSEmailService {
         interviewLocation,
         confirmationLink,
         declineLink,
+        interviewDuration,
       });
-
-      console.log('[ATS Email Service] HTML content built, length:', htmlContent.length);
 
       return await this.sendEmail({
         to: candidateEmail,
@@ -187,12 +160,16 @@ class ATSEmailService {
         html: htmlContent,
       });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      const errorStack = error instanceof Error ? error.stack : '';
-      console.error('[ATS Email Service] Exception in sendInterviewInvitation:', {
-        message: errorMessage,
-        stack: errorStack
-      });
+      const errorMessage = error instanceof Error
+        ? error.message
+        : (() => {
+            try {
+              return JSON.stringify(error, null, 2);
+            } catch {
+              return String(error);
+            }
+          })();
+      console.error('[ATS Email Service] sendInterviewInvitation failed:', errorMessage);
       return {
         success: false,
         error: errorMessage,
@@ -218,14 +195,6 @@ class ATSEmailService {
     testData: Partial<TechnicalTestInvitationData> = {}
   ): Promise<SendEmailResult> {
     try {
-      console.log('[ATS Email Service] sendTechnicalTestEmail called with:', {
-        candidateEmail,
-        candidateName,
-        jobTitle,
-        testType,
-        testDataKeys: Object.keys(testData)
-      });
-
       const htmlContent = generateTechnicalTestInvitationHTML({
         candidateName,
         jobTitle,
@@ -233,16 +202,22 @@ class ATSEmailService {
         ...testData,
       });
 
-      console.log('[ATS Email Service] Technical Test HTML built, length:', htmlContent.length);
-
       return await this.sendEmail({
         to: candidateEmail,
         subject: `Technical Test Invitation - ${jobTitle} at SnapHire`,
         html: htmlContent,
       });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('[ATS Email Service] Exception in sendTechnicalTestEmail:', errorMessage);
+      const errorMessage = error instanceof Error
+        ? error.message
+        : (() => {
+            try {
+              return JSON.stringify(error, null, 2);
+            } catch {
+              return String(error);
+            }
+          })();
+      console.error('[ATS Email Service] sendTechnicalTestEmail failed:', errorMessage);
       return {
         success: false,
         error: errorMessage,
@@ -295,20 +270,11 @@ class ATSEmailService {
     hiredData: Partial<HiredNotificationData> = {}
   ): Promise<SendEmailResult> {
     try {
-      console.log('[ATS Email Service] sendHiredEmail called with:', {
-        candidateEmail,
-        candidateName,
-        jobTitle,
-        hiredDataKeys: Object.keys(hiredData)
-      });
-
       const htmlContent = generateHiredNotificationHTML({
         candidateName,
         jobTitle,
         ...hiredData,
       });
-
-      console.log('[ATS Email Service] Hired HTML built, length:', htmlContent.length);
 
       return await this.sendEmail({
         to: candidateEmail,
@@ -316,8 +282,16 @@ class ATSEmailService {
         html: htmlContent,
       });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('[ATS Email Service] Exception in sendHiredEmail:', errorMessage);
+      const errorMessage = error instanceof Error
+        ? error.message
+        : (() => {
+            try {
+              return JSON.stringify(error, null, 2);
+            } catch {
+              return String(error);
+            }
+          })();
+      console.error('[ATS Email Service] sendHiredEmail failed:', errorMessage);
       return {
         success: false,
         error: errorMessage,
@@ -357,20 +331,11 @@ class ATSEmailService {
     rejectionData: Partial<RejectionNotificationData> = {}
   ): Promise<SendEmailResult> {
     try {
-      console.log('[ATS Email Service] sendRejectionEmail called with:', {
-        candidateEmail,
-        candidateName,
-        jobTitle,
-        rejectionDataKeys: Object.keys(rejectionData)
-      });
-
       const htmlContent = generateRejectionNotificationHTML({
         candidateName,
         jobTitle,
         ...rejectionData,
       });
-
-      console.log('[ATS Email Service] Rejection HTML built, length:', htmlContent.length);
 
       return await this.sendEmail({
         to: candidateEmail,
@@ -378,8 +343,16 @@ class ATSEmailService {
         html: htmlContent,
       });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('[ATS Email Service] Exception in sendRejectionEmail:', errorMessage);
+      const errorMessage = error instanceof Error
+        ? error.message
+        : (() => {
+            try {
+              return JSON.stringify(error, null, 2);
+            } catch {
+              return String(error);
+            }
+          })();
+      console.error('[ATS Email Service] sendRejectionEmail failed:', errorMessage);
       return {
         success: false,
         error: errorMessage,
@@ -413,29 +386,20 @@ class ATSEmailService {
     shortlistedData: Partial<ShortlistedNotificationData> = {}
   ): Promise<SendEmailResult> {
     try {
-      console.log('[ATS Email Service] sendShortlistedEmail called with:', {
-        candidateEmail,
-        candidateName,
-        jobTitle,
-        shortlistedDataKeys: Object.keys(shortlistedData)
-      });
-
       const htmlContent = generateShortlistedNotificationHTML({
         candidateName,
         jobTitle,
         ...shortlistedData,
       });
 
-      console.log('[ATS Email Service] Shortlisted HTML built, length:', htmlContent.length);
-
       return await this.sendEmail({
         to: candidateEmail,
-        subject: `Application Update – ${jobTitle}` + ' at SnapHire',
+        subject: `Application Update - ${jobTitle} at SnapHire`,
         html: htmlContent,
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('[ATS Email Service] Exception in sendShortlistedEmail:', errorMessage);
+      console.error('[ATS Email Service] sendShortlistedEmail failed:', errorMessage);
       return {
         success: false,
         error: errorMessage,

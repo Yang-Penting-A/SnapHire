@@ -40,8 +40,8 @@ class EmailService {
         logger: false,
       });
 
-      this.client.on('error', (err) => {
-        console.error('[IMAP] Connection error: ' + err.message);
+      this.client.on('error', (err: any) => {
+        console.error('[IMAP] Connection error: ' + (err && (err.stack || err.message || err)));
       });
 
       this.client.on('close', () => {
@@ -50,8 +50,8 @@ class EmailService {
 
       await this.client.connect();
       console.log('[IMAP] Connected');
-    } catch (error) {
-      console.error('[IMAP] Connection failed: ' + error);
+    } catch (error: any) {
+      console.error('[IMAP] Connection failed: ', error && (error.stack || error.message || error));
       throw error;
     }
   }
@@ -65,17 +65,17 @@ class EmailService {
       throw new Error('IMAP client not connected');
     }
 
-    try {
-      const mailbox = await this.client.mailboxOpen(folderName);
-      const unreadSearch = await this.client.search({ seen: false });
-      
+    const doFetch = async () => {
+      const mailbox = await this.client!.mailboxOpen(folderName);
+      const unreadSearch = await this.client!.search({ seen: false });
+
       if (!unreadSearch || (typeof unreadSearch !== 'boolean' && unreadSearch.length === 0)) {
-        return [];
+        return [] as EmailMessage[];
       }
 
       const emails: EmailMessage[] = [];
 
-      for await (const message of this.client.fetch(unreadSearch, {
+      for await (const message of this.client!.fetch(unreadSearch, {
         envelope: true,
       })) {
         try {
@@ -87,16 +87,31 @@ class EmailService {
           };
 
           emails.push(email);
-        } catch (msgError) {
-          console.error('[IMAP] Error parsing message: ' + msgError);
+        } catch (msgError: any) {
+          console.error('[IMAP] Error parsing message: ', msgError && (msgError.stack || msgError.message || msgError));
         }
       }
 
       console.log('[IMAP] Fetched ' + emails.length + ' unread emails from ' + folderName);
       return emails;
-    } catch (error) {
-      console.error('[IMAP] Fetch failed: ' + error);
-      return [];
+    };
+
+    try {
+      return await doFetch();
+    } catch (error: any) {
+      console.error('[IMAP] Fetch failed: ', error && (error.stack || error.message || error));
+
+      // Attempt a reconnect once and retry the fetch to recover transient connection issues
+      try {
+        console.log('[IMAP] Attempting reconnect due to fetch error...');
+        await this.disconnect().catch(() => undefined);
+        await this.connect();
+        console.log('[IMAP] Reconnect successful, retrying fetch...');
+        return await doFetch();
+      } catch (retryErr: any) {
+        console.error('[IMAP] Retry after reconnect failed: ', retryErr && (retryErr.stack || retryErr.message || retryErr));
+        return [];
+      }
     }
   }
 
@@ -105,11 +120,11 @@ class EmailService {
       throw new Error('IMAP client not connected');
     }
 
-    try {
+    const doFetchRaw = async () => {
       // Select the correct mailbox before downloading
-      await this.client.mailboxOpen(folderName);
+      await this.client!.mailboxOpen(folderName);
 
-      const message = await this.client.download(messageId, '');
+      const message = await this.client!.download(messageId, '');
       const chunks: Buffer[] = [];
 
       for await (const chunk of message.content) {
@@ -117,9 +132,24 @@ class EmailService {
       }
 
       return Buffer.concat(chunks);
-    } catch (error) {
-      console.error('[IMAP] Failed to fetch raw email: ' + error);
-      return null;
+    };
+
+    try {
+      return await doFetchRaw();
+    } catch (error: any) {
+      console.error('[IMAP] Failed to fetch raw email: ', error && (error.stack || error.message || error));
+
+      // Try reconnect once and retry
+      try {
+        console.log('[IMAP] Attempting reconnect due to fetchRaw error...');
+        await this.disconnect().catch(() => undefined);
+        await this.connect();
+        console.log('[IMAP] Reconnect successful, retrying fetchRaw...');
+        return await doFetchRaw();
+      } catch (retryErr: any) {
+        console.error('[IMAP] Retry for fetchRaw failed: ', retryErr && (retryErr.stack || retryErr.message || retryErr));
+        return null;
+      }
     }
   }
 
@@ -128,8 +158,8 @@ class EmailService {
       if (this.client) {
         await (this.client as any).messageUpdate(messageId, { flags: { add: ['\\Seen'] } });
       }
-    } catch (error) {
-      console.error('[IMAP] Failed to mark as read: ' + error);
+    } catch (error: any) {
+      console.error('[IMAP] Failed to mark as read: ', error && (error.stack || error.message || error));
     }
   }
 
@@ -141,8 +171,8 @@ class EmailService {
     try {
       await this.client.logout();
       console.log('[IMAP] Disconnected');
-    } catch (error) {
-      console.error('[IMAP] Disconnect error: ' + error);
+    } catch (error: any) {
+      console.error('[IMAP] Disconnect error: ', error && (error.stack || error.message || error));
     } finally {
       this.client = null;
     }
