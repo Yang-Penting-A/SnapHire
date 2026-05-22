@@ -1,10 +1,10 @@
 'use client';
 
+import { Suspense, useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
-export default function ConfirmInterviewPage() {
+function ConfirmInterviewContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
@@ -108,5 +108,19 @@ export default function ConfirmInterviewPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function ConfirmInterviewPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-lg p-8 text-center max-w-md w-full">
+          <p className="text-gray-600">Loading interview confirmation...</p>
+        </div>
+      </div>
+    }>
+      <ConfirmInterviewContent />
+    </Suspense>
   );
 }

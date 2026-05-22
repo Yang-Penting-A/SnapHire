@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/app/lib/supabase';
+import { buildApiUrl } from '@/app/lib/api';
 import { 
   UploadCloud, FileText, Loader2, CheckCircle2, AlertCircle, 
   Briefcase, Sparkles, ChevronRight, Bot, FileCheck, Info
@@ -84,7 +85,7 @@ export default function ScanCVPage() {
       formData.append('file', uploadFile);
       formData.append('job_id', selectedJobId);
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'}/cv/upload`, {
+      const response = await fetch(buildApiUrl('/cv/upload'), {
         method: 'POST',
         body: formData,
         headers: {

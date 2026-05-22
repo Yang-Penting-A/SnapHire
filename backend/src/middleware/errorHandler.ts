@@ -23,9 +23,11 @@ export const errorHandler = (
     });
   }
 
+  const message = err instanceof Error ? err.message : 'Internal server error';
   console.error('Uncaught error:', err);
   res.status(500).json({
     status: 'error',
-    message: 'Internal server error',
+    message,
+    stack: process.env.NODE_ENV === 'development' && err instanceof Error ? err.stack : undefined,
   });
 };

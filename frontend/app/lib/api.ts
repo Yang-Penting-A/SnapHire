@@ -6,6 +6,30 @@
  */
 
 import sessionManager from './sessionManager';
+import { supabase } from './supabase';
+
+const API_PREFIX = '/api';
+
+export function getApiBaseUrl() {
+  const rawBaseUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
+
+  if (!rawBaseUrl) {
+    throw new Error('NEXT_PUBLIC_API_URL is required');
+  }
+
+  return rawBaseUrl.replace(/\/+$/, '').replace(/\/api$/, '') + API_PREFIX;
+}
+
+export function buildApiUrl(url: string) {
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+
+  const normalizedPath = url.startsWith('/') ? url : `/${url}`;
+  const pathWithoutApiPrefix = normalizedPath.replace(/^\/api(?=\/|$)/, '');
+
+  return `${getApiBaseUrl()}${pathWithoutApiPrefix}`;
+}
 
 export interface ApiOptions extends RequestInit {
   includeToken?: boolean;
@@ -40,34 +64,55 @@ export async function apiFetch(
 
   // Include JWT token if available and not explicitly disabled
   if (includeToken && typeof window !== 'undefined') {
-    // Validate session before using token
+    let token: string | null = null;
+
+    // Prefer token managed by sessionManager when valid
     const validation = sessionManager.validateSession();
-    if (!validation.isValid) {
-      console.warn('[API] ⚠️ Session expired or invalid:', validation.reason);
-      sessionManager.clearSession();
-      throw new Error('Session expired. Please login again.');
+    if (validation.isValid) {
+      token = sessionManager.getToken();
+    } else {
+      console.warn('[API] ⚠️ SessionManager invalid, trying Supabase session fallback:', validation.reason);
     }
-    
-    // Use sessionManager to get valid token
-    const token = sessionManager.getToken();
+
+    // Fallback: read token directly from Supabase client session
+    if (!token) {
+      const { data: supaSession, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) {
+        console.warn('[API] ⚠️ Supabase getSession fallback failed:', sessionError.message);
+      }
+      token = supaSession?.session?.access_token ?? null;
+    }
+
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     } else {
-      console.warn('[API] ⚠️ No valid token found');
+      console.warn('[API] ⚠️ No valid token found from sessionManager or Supabase session');
       sessionManager.clearSession();
-      throw new Error('No valid session. Please login again.');
+      throw new Error('No valid auth token. Please login again.');
     }
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
-  const fullUrl = url.startsWith('http') ? url : `${baseUrl}${url}`;
+  const fullUrl = buildApiUrl(url);
 
-  const response = await fetch(fullUrl, {
-    ...fetchOptions,
-    headers,
-  });
+  // Debug logging: final URL and request details
+  if (typeof window !== 'undefined') {
+    // Use console.debug to avoid noisy logs in production, but useful in dev
+    console.debug('[apiFetch] Final URL:', fullUrl);
+    console.debug('[apiFetch] Method:', fetchOptions.method || 'GET');
+    console.debug('[apiFetch] Headers:', headers);
+    if (fetchOptions.body) console.debug('[apiFetch] Body:', fetchOptions.body);
+  }
 
-  return response;
+  try {
+    const response = await fetch(fullUrl, {
+      ...fetchOptions,
+      headers,
+    });
+    return response;
+  } catch (networkError: any) {
+    console.error('[apiFetch] Network error when fetching', fullUrl, networkError && (networkError.message || networkError));
+    throw networkError;
+  }
 }
 
 /**

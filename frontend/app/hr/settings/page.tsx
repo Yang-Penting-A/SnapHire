@@ -84,108 +84,108 @@ export default function SettingsPage() {
   }
 
   return (
-    // Parent Container: No-scroll global, fixed height layout
-    <div className="flex flex-col h-[calc(100vh-6rem)] overflow-hidden">
-      
-      {/* =========================================
-          FIXED HEADER (Identik dengan List Pelamar)
-          ========================================= */}
+    <div className="flex flex-col h-[calc(100vh-6rem)] overflow-hidden bg-[#FFFAF5]/20">
       <div className="shrink-0 bg-[#FFFAF5]/80 backdrop-blur-md px-4 pb-6 pt-2 flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-stone-100/50">
         <div>
-          <h1 className="text-4xl font-black text-stone-900 tracking-tight uppercase">Pengaturan</h1>
-          <p className="text-stone-500 font-medium">Konfigurasi akun dan keamanan sistem.</p>
+          <h1 className="text-3xl font-black text-stone-900 tracking-tight uppercase">Pengaturan</h1>
+          <p className="mt-1 text-stone-500 font-medium">Konfigurasi akun dan keamanan sistem.</p>
         </div>
-        <button 
+        <button
           onClick={handleLogout}
-          className="flex items-center gap-2 px-5 py-3 bg-white border border-rose-100 text-rose-600 hover:bg-rose-50 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 shadow-sm"
+          className="bg-white border border-stone-200 hover:border-rose-200 text-stone-700 hover:text-rose-600 px-6 py-3 rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 shadow-sm"
         >
-          <LogOut size={16} strokeWidth={2.5} /> Keluar Akun
+          <LogOut size={18} strokeWidth={2.5} />
+          Keluar Akun
         </button>
       </div>
 
-      {/* =========================================
-          CONTENT AREA (No Internal Scroll / Fixed)
-          ========================================= */}
-      <div className="flex-1 px-4 py-8">
-        
-        <div className="max-w-3xl space-y-6"> {/* max-w-3xl supaya lebih compact */}
-          
-          {/* 1. INFORMASI AKUN */}
-          <div className="bg-white rounded-[2rem] p-7 border border-stone-100 shadow-[0_8px_30px_rgb(0,0,0,0.02)]">
-            <div className="flex items-center gap-4 mb-6">
-              <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-8 custom-scrollbar">
+        <div className="max-w-7xl mx-auto space-y-8">
+          <div className="bg-white rounded-[2.5rem] border border-stone-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-8 md:p-10 animate-in fade-in duration-700">
+            <div className="flex items-center gap-4 mb-8">
+              <div className="w-12 h-12 shrink-0 flex items-center justify-center rounded-2xl bg-blue-50 text-blue-600 border border-blue-100 shadow-sm">
                 <User size={20} strokeWidth={2.5} />
               </div>
-              <h2 className="text-lg font-black text-stone-900 uppercase tracking-tight">Informasi Akun</h2>
+              <div>
+                <h2 className="text-[12px] font-black text-stone-900 uppercase tracking-[0.2em]">Informasi Akun</h2>
+                <p className="mt-1 text-stone-500 text-sm font-medium">Data profil yang tersimpan untuk akses HR.</p>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-1.5">
-                <p className="text-[9px] font-black text-stone-400 uppercase tracking-[0.2em] ml-1">Nama Lengkap</p>
-                <div className="font-bold text-stone-800 bg-stone-50/50 px-4 py-3 rounded-xl border border-stone-100 text-sm">
+              <div className="space-y-2">
+                <p className="block text-[10px] font-black text-stone-400 uppercase tracking-[0.22em] ml-1">Nama Lengkap</p>
+                <div className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3.5 font-bold text-stone-700 text-sm">
                   {profileData.name}
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <p className="text-[9px] font-black text-stone-400 uppercase tracking-[0.2em] ml-1">Alamat Email</p>
-                <div className="font-bold text-stone-800 bg-stone-50/50 px-4 py-3 rounded-xl border border-stone-100 text-sm">
+              <div className="space-y-2">
+                <p className="block text-[10px] font-black text-stone-400 uppercase tracking-[0.22em] ml-1">Alamat Email</p>
+                <div className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3.5 font-bold text-stone-700 text-sm break-all">
                   {profileData.email}
                 </div>
               </div>
-              <div className="space-y-1.5 md:col-span-2">
-                <p className="text-[9px] font-black text-stone-400 uppercase tracking-[0.2em] ml-1">Role / Hak Akses</p>
-                <div className="inline-flex items-center gap-2 font-black text-blue-700 bg-blue-50/50 px-4 py-2.5 rounded-xl border border-blue-100 text-[10px] uppercase">
-                  <ShieldCheck size={14} /> {profileData.role}
+              <div className="space-y-2 md:col-span-2">
+                <p className="block text-[10px] font-black text-stone-400 uppercase tracking-[0.22em] ml-1">Role / Hak Akses</p>
+                <div className="inline-flex items-center gap-2 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-2.5 font-black text-[11px] uppercase tracking-widest text-blue-700">
+                  <ShieldCheck size={14} />
+                  {profileData.role}
                 </div>
               </div>
             </div>
           </div>
 
-          {/* 2. GANTI PASSWORD */}
-          <div className="bg-white rounded-[2rem] p-7 border border-stone-100 shadow-[0_8px_30px_rgb(0,0,0,0.02)]">
-            <div className="flex items-center gap-4 mb-6">
-              <div className="p-3 bg-amber-50 text-amber-600 rounded-xl">
+          <div className="bg-white rounded-[2.5rem] border border-stone-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-8 md:p-10 animate-in fade-in duration-700">
+            <div className="flex items-center gap-4 mb-8">
+              <div className="w-12 h-12 shrink-0 flex items-center justify-center rounded-2xl bg-amber-50 text-amber-600 border border-amber-100 shadow-sm">
                 <Lock size={20} strokeWidth={2.5} />
               </div>
-              <h2 className="text-lg font-black text-stone-900 uppercase tracking-tight">Keamanan & Sandi</h2>
+              <div>
+                <h2 className="text-[12px] font-black text-stone-900 uppercase tracking-[0.2em]">Keamanan & Sandi</h2>
+                <p className="mt-1 text-stone-500 text-sm font-medium">Perbarui kata sandi akun HR dari halaman ini.</p>
+              </div>
             </div>
 
             {passwordMessage && (
-              <div className={`mb-6 p-3 rounded-xl text-[10px] font-black uppercase tracking-wider border animate-in fade-in ${
-                passwordMessage.includes('✅') 
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
-                  : 'bg-rose-50 text-rose-700 border-rose-200'
-              }`}>
+              <div
+                className={`mb-8 rounded-2xl border px-4 py-3 text-[11px] font-black uppercase tracking-wider animate-in fade-in ${
+                  passwordMessage.includes('✅')
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    : 'bg-rose-50 text-rose-700 border-rose-200'
+                }`}
+              >
                 {passwordMessage}
               </div>
             )}
 
-            <div className="max-w-md space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-stone-400 uppercase tracking-[0.2em] ml-1">Kata Sandi Baru</label>
-                <input 
-                  type="password" 
+            <div className="max-w-2xl space-y-6">
+              <div className="space-y-2">
+                <label className="block text-[10px] font-black text-stone-400 uppercase tracking-[0.22em] ml-1">Kata Sandi Baru</label>
+                <input
+                  type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full px-4 py-3 bg-stone-50 border border-stone-200 rounded-xl font-bold text-stone-700 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all text-sm"
+                  className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3.5 font-bold text-stone-700 placeholder:text-stone-400 outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                 />
               </div>
-              <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-stone-400 uppercase tracking-[0.2em] ml-1">Konfirmasi Sandi Baru</label>
-                <input 
-                  type="password" 
+
+              <div className="space-y-2">
+                <label className="block text-[10px] font-black text-stone-400 uppercase tracking-[0.22em] ml-1">Konfirmasi Sandi Baru</label>
+                <input
+                  type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full px-4 py-3 bg-stone-50 border border-stone-200 rounded-xl font-bold text-stone-700 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all text-sm"
+                  className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3.5 font-bold text-stone-700 placeholder:text-stone-400 outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                 />
               </div>
-              <div className="flex justify-start pt-2">
-                <button 
+
+              <div className="pt-2 flex justify-start">
+                <button
                   onClick={handleUpdatePassword}
                   disabled={isUpdatingPassword}
-                  className="bg-stone-900 hover:bg-blue-600 disabled:bg-stone-300 text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 flex items-center gap-2"
+                  className="bg-stone-900 hover:bg-blue-600 disabled:bg-stone-300 text-white px-6 py-3 rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all active:scale-95 flex items-center gap-2 shadow-lg shadow-stone-900/10"
                 >
                   {isUpdatingPassword ? <Loader2 size={14} className="animate-spin" /> : <Lock size={14} />}
                   {isUpdatingPassword ? 'Memproses...' : 'Perbarui Kata Sandi'}
@@ -193,7 +193,6 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
-
         </div>
       </div>
     </div>
