@@ -1,0 +1,1 @@
+export { config, validateDeploymentConfig } from './config';

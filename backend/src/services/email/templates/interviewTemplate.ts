@@ -11,7 +11,7 @@ interface InterviewInvitationData {
   jobTitle: string;
   companyName?: string;
   interviewDate: string;
-  interviewDuration?: string; // Tambahan: durasi interview
+  interviewDuration?: string;
   interviewLocation: string;
   interviewType?: 'in-person' | 'virtual' | 'phone';
   confirmationLink: string;
@@ -29,7 +29,7 @@ function generateInterviewInvitationHTML(data: InterviewInvitationData): string 
     jobTitle,
     companyName = 'SnapHire',
     interviewDate,
-    interviewDuration = '60 minutes',
+    interviewDuration,
     interviewLocation,
     interviewType = 'in-person',
     confirmationLink,
@@ -49,6 +49,25 @@ function generateInterviewInvitationHTML(data: InterviewInvitationData): string 
     .split('-')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
+
+  const formatDuration = (value?: string) => {
+    if (!value) {
+      return '';
+    }
+
+    const normalizedValue = value.trim();
+    if (!normalizedValue) {
+      return '';
+    }
+
+    if (/\b(minute|minutes|menit)\b/i.test(normalizedValue)) {
+      return normalizedValue;
+    }
+
+    return `${normalizedValue} minutes`;
+  };
+
+  const displayDuration = formatDuration(interviewDuration);
 
   return `
     <!DOCTYPE html>
@@ -249,10 +268,12 @@ function generateInterviewInvitationHTML(data: InterviewInvitationData): string 
                 <div class="detail-value">${interviewDate}</div>
               </div>
               
+              ${displayDuration ? `
               <div class="detail-row">
                 <div class="detail-label">Duration</div>
-                <div class="detail-value">${interviewDuration}</div>
+                <div class="detail-value">${displayDuration}</div>
               </div>
+              ` : ''}
 
               <div class="detail-row">
                 <div class="detail-label">Type</div>

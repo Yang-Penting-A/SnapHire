@@ -81,7 +81,7 @@ export default function ConfirmRescanModal({
         <div className="px-6 py-6">
           <div className="rounded-3xl border border-blue-100 bg-blue-50/60 px-5 py-4">
             <p className="text-sm font-semibold text-stone-700 leading-relaxed">
-              Apakah kamu yakin ingin melanjutkan proses rescan AI?
+              Apakah anda yakin ingin melanjutkan proses rescan AI?
             </p>
 
             <p className="mt-2 text-xs text-stone-500">

@@ -1,18 +1,7 @@
-import { Router, Request, Response } from 'express';
+import { Request, Response } from 'express';
 import { supabaseService } from '../services/supabase';
 
-const router = Router();
-
-/**
- * SIMPLIFIED interview response endpoint (NEW)
- * 
- * Candidate responds directly to interview invitation without token validation.
- * 
- * GET /api/interviews/respond?id=APPLICATION_ID&status=CONFIRMED|DECLINED
- * 
- * No authentication required (links are public but scoped to application_id)
- */
-router.get('/respond', async (req: Request, res: Response) => {
+export async function respondToInterview(req: Request, res: Response) {
   try {
     const { id, status } = req.query;
 
@@ -270,6 +259,4 @@ router.get('/respond', async (req: Request, res: Response) => {
        <h1>Error</h1><p>An unexpected error occurred. Please try again later.</p></body></html>`
     );
   }
-});
-
-export default router;
+}

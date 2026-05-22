@@ -1,14 +1,15 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../lib/supabase';
 import { Mail, Lock, LogIn, AlertCircle, Loader2, Eye, EyeOff } from 'lucide-react';
 import sessionManager from '../lib/sessionManager';
+import { buildApiUrl } from '../lib/api';
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -139,8 +140,7 @@ export default function LoginPage() {
       const token = sessionData.session.access_token;
 
       // Backend verify token
-      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
-      const response = await fetch(`${backendUrl}/login`, {
+      const response = await fetch(buildApiUrl('/login'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -161,11 +161,15 @@ export default function LoginPage() {
 
       // catat activity log
       const { error: logError } = await supabase.from('activity_logs').insert({
-        user_id: authData.user.id,
+        user_id: userData.user_id,
         activity: `LOGIN: ${userData?.name || 'User'} masuk sebagai ${userData?.role || 'user'}`
       });
 
-      if (logError) console.error("Gagal mencatat log:", logError.message);
+      if (logError) {
+        console.error('[LOG ERROR] Gagal mencatat log manual:', logError.message);
+      } else {
+        console.log('[LOG SUCCESS] Log Manual berhasil dicatat!');
+      }
 
       const role = userData?.role?.toLowerCase();
       router.refresh();
@@ -333,5 +337,20 @@ export default function LoginPage() {
       </div>
 
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-blue-600/20 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-600 font-medium">Loading login...</p>
+        </div>
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
   );
 }

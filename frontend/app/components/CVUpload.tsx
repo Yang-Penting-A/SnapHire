@@ -2,6 +2,7 @@
 
 import React, { useState, useRef } from 'react';
 import { Upload, FileText, Loader2, CheckCircle2, AlertCircle, X } from 'lucide-react';
+import { buildApiUrl } from '@/app/lib/api';
 
 interface CVUploadComponentProps {
   jobId: string;
@@ -57,10 +58,10 @@ export default function CVUploadComponent({
       console.log('[Frontend] CV Upload - Starting upload for job:', jobId);
       console.log('[Frontend] File details:', { name: uploadFile.name, size: uploadFile.size, type: uploadFile.type });
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+      const apiUrl = buildApiUrl('/cv/upload');
       console.log('[Frontend] API URL:', apiUrl);
 
-      const response = await fetch(`${apiUrl}/cv/upload`, {
+      const response = await fetch(apiUrl, {
         method: 'POST',
         body: formData,
         headers: {

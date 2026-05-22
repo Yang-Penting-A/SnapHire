@@ -22,12 +22,12 @@ export default function TechnicalTestModal({
     assessmentLink: "",
     deadlineDate: "",
     deadlineTime: "",
-    estimatedDuration: "60",
+    estimatedDuration: "",
     // Live Coding
     meetingLink: "",
     scheduleDate: "",
     scheduleTime: "",
-    duration: "60",
+    duration: "",
     // General
     instructions: "",
   });

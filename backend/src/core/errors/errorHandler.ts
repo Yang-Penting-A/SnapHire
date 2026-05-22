@@ -1,0 +1,1 @@
+export { ApiError, errorHandler } from '../../middleware/errorHandler';

@@ -1,6 +1,7 @@
-import app from './server';
-import { config } from './config/config';
+import app from './app';
+import { config, validateDeploymentConfig } from './config';
 import EmailPollingService from './services/email/poller';
+import sendRouter from './api/auth/send';
 
 const PORT = config.port;
 
@@ -8,6 +9,8 @@ let emailPollingService: EmailPollingService | null = null;
 
 async function startServer(): Promise<void> {
   try {
+    validateDeploymentConfig();
+
     // Start email polling service (non-blocking)
     emailPollingService = new EmailPollingService();
     emailPollingService.startPolling().catch(error => {
@@ -15,7 +18,7 @@ async function startServer(): Promise<void> {
     });
 
     // Start Express server immediately
-    app.listen(PORT, () => {
+    app.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 Server running on http://localhost:${PORT}`);
       console.log(`📚 API Docs available at http://localhost:${PORT}${config.apiPrefix}`);
       console.log(`🔧 Environment: ${config.debug ? 'development' : 'production'}`);
@@ -36,6 +39,8 @@ process.on('SIGINT', async () => {
   
   process.exit(0);
 });
+
+app.use('/api', sendRouter);
 
 startServer();
 

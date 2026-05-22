@@ -18,6 +18,12 @@ export const requireRole = (allowedRoles: string[]) => {
       const userId = (req as any).user?.id;
       
       if (!userId) {
+        console.warn('[ROLE] Missing req.user in role check', {
+          method: req.method,
+          path: req.originalUrl,
+          hasAuthorizationHeader: Boolean(req.headers.authorization),
+          internalService: Boolean((req as any).internalService),
+        });
         res.status(401).json({
           status: 'error',
           message: 'User not authenticated'
