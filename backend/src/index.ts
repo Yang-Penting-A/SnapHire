@@ -1,5 +1,5 @@
 import app from './app';
-import { config } from './config';
+import { config, validateDeploymentConfig } from './config';
 import EmailPollingService from './services/email/poller';
 import sendRouter from './api/auth/send';
 
@@ -9,6 +9,8 @@ let emailPollingService: EmailPollingService | null = null;
 
 async function startServer(): Promise<void> {
   try {
+    validateDeploymentConfig();
+
     // Start email polling service (non-blocking)
     emailPollingService = new EmailPollingService();
     emailPollingService.startPolling().catch(error => {

@@ -1,4 +1,7 @@
 import axios from 'axios';
+import { config } from '../../config/config';
+
+const normalizeBaseUrl = (value: string) => value.replace(/\/+$/, '').replace(/\/api$/, '');
 
 interface UploadResult {
   success: boolean;
@@ -34,8 +37,19 @@ class CVUploadManager {
         };
       }
 
+      if (!config.backendUrl) {
+        console.error('[BUFFER-UPLOAD] BACKEND_URL is not configured');
+        return {
+          success: false,
+          error: 'Missing BACKEND_URL for internal CV upload routing',
+        };
+      }
+
+      const backendBaseUrl = normalizeBaseUrl(config.backendUrl);
+      const uploadUrl = `${backendBaseUrl}${config.apiPrefix}/cv/upload`;
+
       console.log(`[BUFFER-UPLOAD] Job ID: ${jobId}`);
-      console.log(`[BUFFER-UPLOAD] Calling: POST http://localhost:8000/api/cv/upload`);
+      console.log(`[BUFFER-UPLOAD] Calling: POST ${uploadUrl}`);
       
       const FormDataClass = require('form-data');
       const formData = new FormDataClass();
@@ -46,7 +60,7 @@ class CVUploadManager {
 
       try {
         console.log(`[BUFFER-UPLOAD] Making HTTP POST request...`);
-        const response = await axios.post('http://localhost:8000/api/cv/upload', formData, {
+        const response = await axios.post(uploadUrl, formData, {
           headers: {
             ...formData.getHeaders(),
             Authorization: `Bearer ${internalApiKey}`,

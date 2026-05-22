@@ -2,13 +2,20 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+const trimUrl = (value: string | undefined): string => value?.trim() || '';
+
+const parseCorsOrigins = (value: string | undefined): string[] => {
+  const origins = value?.split(',').map(origin => origin.trim()).filter(Boolean) || [];
+  return origins;
+};
+
 export const config = {
   debug: process.env.DEBUG === 'true',
   port: parseInt(process.env.PORT || '8000', 10),
   apiPrefix: process.env.API_PREFIX || '/api',
-  corsOrigin: (process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000', 'http://localhost:8000'])
-    .map(origin => origin.trim())
-    .filter(Boolean),
+  corsOrigin: parseCorsOrigins(process.env.CORS_ORIGIN),
+  frontendUrl: trimUrl(process.env.FRONTEND_URL),
+  backendUrl: trimUrl(process.env.BACKEND_URL),
   database: {
     url: process.env.DATABASE_URL || '',
   },
@@ -31,3 +38,42 @@ export const config = {
     },
   },
 };
+
+const criticalEnvNames = [
+  'SUPABASE_URL',
+  'SUPABASE_SERVICE_ROLE_KEY',
+  'AZURE_STORAGE_CONNECTION_STRING',
+  'EMAIL_USER',
+  'EMAIL_APP_PASSWORD',
+  'GEMINI_API_KEY',
+  'INTERNAL_API_KEY',
+  'FRONTEND_URL',
+  'BACKEND_URL',
+];
+
+export function validateDeploymentConfig() {
+  const missing = criticalEnvNames.filter(name => !process.env[name]?.trim());
+
+  if (missing.length > 0) {
+    console.warn(`[ENV] Missing critical environment variables: ${missing.join(', ')}`);
+  }
+
+  if (process.env.NODE_ENV === 'production') {
+    const localOrigins = config.corsOrigin.filter(origin => /localhost|127\.0\.0\.1/i.test(origin));
+    if (localOrigins.length > 0) {
+      console.warn(`[ENV] CORS_ORIGIN still contains local origins in production: ${localOrigins.join(', ')}`);
+    }
+
+    if (!config.frontendUrl) {
+      console.warn('[ENV] FRONTEND_URL is required for production email links');
+    }
+
+    if (!config.backendUrl) {
+      console.warn('[ENV] BACKEND_URL is required for production internal links');
+    }
+  } else if (config.corsOrigin.length === 0) {
+    console.warn('[ENV] CORS_ORIGIN is not configured; local development requests may be blocked');
+  }
+
+  return missing;
+}

@@ -11,7 +11,12 @@ import { supabase } from './supabase';
 const API_PREFIX = '/api';
 
 export function getApiBaseUrl() {
-  const rawBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  const rawBaseUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
+
+  if (!rawBaseUrl) {
+    throw new Error('NEXT_PUBLIC_API_URL is required');
+  }
+
   return rawBaseUrl.replace(/\/+$/, '').replace(/\/api$/, '') + API_PREFIX;
 }
 

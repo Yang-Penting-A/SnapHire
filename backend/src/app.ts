@@ -23,6 +23,10 @@ console.log('[CORS] Allowed origins:', config.corsOrigin);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+app.get('/health', (req: Request, res: Response) => {
+  res.status(200).json({ status: 'ok' });
+});
+
 // Routes
 app.get('/', (req: Request, res: Response) => {
   res.status(200).json({

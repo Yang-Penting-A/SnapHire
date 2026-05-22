@@ -30,6 +30,17 @@ router.post('/send-credential', async (req: Request, res: Response): Promise<any
   }
 
   try {
+    const frontendLoginUrl = config.frontendUrl
+      ? `${config.frontendUrl.replace(/\/+$/, '')}/login`
+      : '';
+
+    if (!frontendLoginUrl) {
+      return res.status(500).json({
+        success: false,
+        message: 'FRONTEND_URL belum dikonfigurasi di environment backend.',
+      });
+    }
+
     // 3. Set Desain Konten Email HTML snapHire
     const mailOptions = {
       from: `"snapHire Admin Team" <${config.email.user}>`,
@@ -54,7 +65,7 @@ router.post('/send-credential', async (req: Request, res: Response): Promise<any
           <p style="color: #4b5563; font-size: 13px; margin-bottom: 24px;">Demi keamanan, harap segera mengganti password sementara Anda setelah berhasil masuk pertama kali.</p>
           
           <div style="text-align: center;">
-            <a href="http://localhost:3000/login" style="background-color: #2563eb; color: #ffffff; text-decoration: none; padding: 12px 32px; font-size: 14px; font-weight: bold; border-radius: 12px; display: inline-block;">Masuk ke Dashboard</a>
+            <a href="${frontendLoginUrl}" style="background-color: #2563eb; color: #ffffff; text-decoration: none; padding: 12px 32px; font-size: 14px; font-weight: bold; border-radius: 12px; display: inline-block;">Masuk ke Dashboard</a>
           </div>
           
           <hr style="border: none; border-top: 1px solid #f3f4f6; margin: 32px 0 16px 0;" />

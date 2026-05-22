@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/app/lib/supabase';
 import { UserPlus, Users, Mail, User, ShieldCheck, Search, BadgeCheck, Loader2, ToggleLeft, ToggleRight } from 'lucide-react';
+import { buildApiUrl } from '@/app/lib/api';
 
 export default function AdminUserManagement() {
   const [activeTab, setActiveTab] = useState<'list' | 'create'>('list');
@@ -66,8 +67,7 @@ export default function AdminUserManagement() {
 
       // FIX INJEKSI: TRIGGER TELEPORT DATA KE BACKEND NODEMAILER
       try {
-        const backendUrl = "http://localhost:8000/api"; 
-        const emailResponse = await fetch(`${backendUrl}/auth/send-credential`, {
+        const emailResponse = await fetch(buildApiUrl('/auth/send-credential'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -206,7 +206,7 @@ export default function AdminUserManagement() {
 
           <div className="bg-white rounded-[2.5rem] border border-stone-100 shadow-xl shadow-stone-200/30 overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse table-fixed min-w-[600px]">
+              <table className="w-full text-left border-collapse table-fixed min-w-150">
                 <thead className="bg-stone-50/50 border-b border-stone-100">
                   <tr>
                     <th className="px-8 py-5 text-[10px] font-black text-stone-400 uppercase tracking-[0.2em] w-[40%]">Profil User</th>
@@ -335,7 +335,7 @@ export default function AdminUserManagement() {
       {/* MODAL EDIT NAMA LENGKAP */}
       {editingUser && (
         <div className="fixed inset-0 bg-stone-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-[2rem] p-8 shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className="bg-white w-full max-w-md rounded-4xl p-8 shadow-2xl animate-in zoom-in-95 duration-200">
             <h3 className="text-xl font-black text-stone-900 mb-2">Edit Nama Lengkap</h3>
             <p className="text-sm text-stone-500 font-medium mb-6">Perbarui nama untuk akun {editingUser.email}</p>
             

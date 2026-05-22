@@ -31,9 +31,9 @@ class ATSEmailService {
   private frontendUrl: string;
 
   constructor() {
-    const emailUser = process.env.EMAIL_USER;
-    const emailPassword = process.env.EMAIL_APP_PASSWORD;
-    const frontendUrl = process.env.FRONTEND_URL;
+    const emailUser = config.email.user;
+    const emailPassword = config.email.password;
+    const frontendUrl = config.frontendUrl;
 
     if (!emailUser) {
       throw new Error('Missing EMAIL_USER in environment variables');
@@ -61,13 +61,13 @@ class ATSEmailService {
   }
 
   private getBackendBaseUrl(): string {
-    const configuredBackendUrl = process.env.BACKEND_URL?.trim();
+    const configuredBackendUrl = config.backendUrl;
 
     if (configuredBackendUrl) {
-      return configuredBackendUrl.replace(/\/$/, '');
+      return configuredBackendUrl.replace(/\/+$/, '').replace(/\/api$/, '');
     }
 
-    return `http://localhost:${config.port}`;
+    throw new Error('Missing BACKEND_URL in environment variables');
   }
 
   /**
