@@ -1,18 +1,34 @@
-name: SnapHire CI
+name: Deploy SnapHire
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+    branches:
+      - main
 
 jobs:
-  check:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
+      - name: Deploy to Azure VM
+        uses: appleboy/ssh-action@v1.0.3
 
-      - name: Basic Verification
-        run: echo "SnapHire GitHub Action is running successfully"
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+
+          script: |
+            cd ~/SnapHire
+
+            git pull
+
+            cd backend
+            npm install
+            npm run build
+            pm2 restart backend
+
+            cd ../frontend
+            npm install
+            npm run build
+            pm2 restart frontend
