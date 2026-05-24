@@ -205,8 +205,13 @@ class EmailPollingService {
           try {
             const messageIdStr = email.id.split(':')[1];
             const messageId = parseInt(messageIdStr, 10);
-            await this.emailService.markEmailAsRead(messageId);
-            console.log(`[READ] Email marked as read`);
+            const markedAsRead = await this.emailService.markEmailAsRead(messageId, folderName);
+
+            if (markedAsRead) {
+              console.log(`[READ] Email marked as read`);
+            } else {
+              console.warn(`[READ] Email could not be marked as read`);
+            }
           } catch (err) {
             console.error(`[ERROR] Failed to mark email ${email.id} as read:`, err);
           }

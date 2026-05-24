@@ -67,7 +67,7 @@ class EmailService {
 
     const doFetch = async () => {
       const mailbox = await this.client!.mailboxOpen(folderName);
-      const unreadSearch = await this.client!.search({ seen: false });
+      const unreadSearch = await this.client!.search({ seen: false }, { uid: true });
 
       if (!unreadSearch || (typeof unreadSearch !== 'boolean' && unreadSearch.length === 0)) {
         return [] as EmailMessage[];
@@ -77,10 +77,10 @@ class EmailService {
 
       for await (const message of this.client!.fetch(unreadSearch, {
         envelope: true,
-      })) {
+      }, { uid: true })) {
         try {
           const email: EmailMessage = {
-            id: `${folderName}:${message.seq}`,
+            id: `${folderName}:${message.uid}`,
             sender: message.envelope?.from?.[0]?.address || 'Unknown',
             subject: message.envelope?.subject || '(No Subject)',
             receivedDate: message.envelope?.date || new Date(),
@@ -124,7 +124,7 @@ class EmailService {
       // Select the correct mailbox before downloading
       await this.client!.mailboxOpen(folderName);
 
-      const message = await this.client!.download(messageId, '');
+      const message = await this.client!.download(messageId, '', { uid: true });
       const chunks: Buffer[] = [];
 
       for await (const chunk of message.content) {
@@ -153,13 +153,24 @@ class EmailService {
     }
   }
 
-  async markEmailAsRead(messageId: number): Promise<void> {
+  async markEmailAsRead(messageId: number, folderName: string = 'INBOX'): Promise<boolean> {
     try {
-      if (this.client) {
-        await (this.client as any).messageUpdate(messageId, { flags: { add: ['\\Seen'] } });
+      if (!this.client) {
+        return false;
       }
+
+      await this.client.mailboxOpen(folderName);
+
+      const marked = await this.client.messageFlagsAdd(messageId, ['\\Seen'], { uid: true });
+
+      if (!marked) {
+        throw new Error('ImapFlow messageFlagsAdd returned false');
+      }
+
+      return true;
     } catch (error: any) {
       console.error('[IMAP] Failed to mark as read: ', error && (error.stack || error.message || error));
+      return false;
     }
   }
 
