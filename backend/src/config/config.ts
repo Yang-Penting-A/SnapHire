@@ -7,6 +7,7 @@ const trimUrl = (value: string | undefined): string => value?.trim() || '';
 const DEFAULT_CORS_ORIGINS = [
   'http://localhost:3000',
   'https://snaphire.up.railway.app',
+  'https://snaphire.site',
 ];
 
 const parseCorsOrigins = (value: string | undefined): string[] => {
