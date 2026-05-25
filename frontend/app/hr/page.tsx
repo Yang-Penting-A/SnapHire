@@ -307,8 +307,13 @@ export default function HRDashboard() {
               {announcements.map((ann: any) => (
                 <div key={ann.id} className="bg-white p-5 rounded-2xl border border-amber-100/50 shadow-sm space-y-3 flex flex-col justify-between hover:shadow-md transition-shadow">
                   <div className="space-y-1">
+                    {/* Judul pakai 'truncate' biar kalau kepanjangan otomatis jadi titik-titik (...) */}
                     <h3 className="font-black text-stone-900 text-sm tracking-tight truncate">{ann.title}</h3>
-                    <p className="text-stone-600 text-xs font-medium line-clamp-3 leading-relaxed whitespace-pre-line">{ann.content}</p>
+                    
+                    {/* 🔥 FIX: Tambahkan 'break-words' di baris ini biar teks gak tumpah */}
+                    <p className="text-stone-600 text-xs font-medium line-clamp-3 leading-relaxed whitespace-pre-line break-words">
+                      {ann.content}
+                    </p>
                   </div>
                   <span className="text-[9px] font-black text-stone-400 uppercase tracking-wider block pt-1">
                     📢 {new Date(ann.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}

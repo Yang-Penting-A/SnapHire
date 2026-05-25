@@ -350,7 +350,7 @@ export default function AdminDashboard() {
           <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100/50 flex items-start gap-3">
             <TrendingUp className="text-blue-600 shrink-0 mt-0.5" size={16} />
             <p className="text-blue-900 text-xs font-bold leading-relaxed">
-              Sistem mendeteksi mayoritas kandidat berada pada kluster kualifikasi tingkat <span className="underline decoration-wavy decoration-blue-500">
+              Sistem mendeteksi mayoritas kandidat berada pada kluster kualifikasi tingkat <span>
                 {aiDistribution.high >= aiDistribution.medium && aiDistribution.high >= aiDistribution.low ? 'Tinggi (High)' : aiDistribution.medium >= aiDistribution.low ? 'Menengah (Medium)' : 'Rendah (Low)'}
               </span>.
             </p>
