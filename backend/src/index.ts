@@ -4,6 +4,7 @@ import EmailPollingService from './services/email/poller';
 import sendRouter from './api/auth/send';
 
 const PORT = config.port;
+const enableEmailPolling = process.env.ENABLE_EMAIL_POLLING === 'true';
 
 let emailPollingService: EmailPollingService | null = null;
 
@@ -11,11 +12,15 @@ async function startServer(): Promise<void> {
   try {
     validateDeploymentConfig();
 
-    // Start email polling service (non-blocking)
-    emailPollingService = new EmailPollingService();
-    emailPollingService.startPolling().catch(error => {
-      console.error('[POLLING] Start error: ' + error);
-    });
+    // Start email polling service only when enabled by environment
+    if (enableEmailPolling) {
+      emailPollingService = new EmailPollingService();
+      emailPollingService.startPolling().catch(error => {
+        console.error('[POLLING] Start error: ' + error);
+      });
+    } else {
+      console.log('[POLLING] Disabled by environment variable');
+    }
 
     // Start Express server immediately
     app.listen(PORT, '0.0.0.0', () => {
