@@ -37,6 +37,10 @@ app.get('/', (req: Request, res: Response) => {
 
 app.use(config.apiPrefix, routes);
 
+if (config.apiPrefix === '/api') {
+  app.use('/', routes);
+}
+
 // Error handling middleware
 app.use(errorHandler);
 

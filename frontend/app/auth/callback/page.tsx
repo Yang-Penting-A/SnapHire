@@ -29,9 +29,21 @@ function AuthCallbackContent() {
           throw new Error(`OAuth Error: ${errorDesc || error}`);
         }
 
-        // Wait a moment for Supabase to process the OAuth code
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        const { error: exchangeError } =
+          await supabase.auth.exchangeCodeForSession(
+            window.location.href
+          );
 
+        if (exchangeError) {
+          console.warn(
+            '[OAUTH CALLBACK] exchangeCodeForSession failed:',
+            exchangeError.message
+          );
+        }
+
+        // Wait a moment for Supabase to persist the exchanged session
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
         // Get the session
         const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
         
