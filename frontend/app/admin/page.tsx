@@ -205,52 +205,52 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* 🔥 KOTAK HITAM PINTASAN KRAMAT (QUICK ACTIONS PANEL) */}
-      <div className="bg-stone-900 p-8 md:p-10 rounded-[2.5rem] shadow-2xl shadow-stone-900/20 text-white relative overflow-hidden group">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
+      {/* 🔥 KOTAK PINTASAN (QUICK ACTIONS PANEL) - SUDAH DIUBAH KE TEMA TERANG */}
+      <div className="bg-white p-8 md:p-10 rounded-[2.5rem] border border-stone-100 shadow-xl shadow-stone-200/30 relative overflow-hidden group">
+        {/* Efek glow biru di pojok kanan atas tetep dipertahankan biar manis */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/5 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
         
         <div className="relative z-10 space-y-6">
           <div>
-            <h2 className="text-xs font-black text-blue-400 uppercase tracking-[0.2em]">Quick Actions</h2>
-            <p className="text-lg font-bold text-stone-100 mt-1">Pintasan Akses Cepat Administrator</p>
+            <h2 className="text-xs font-black text-blue-600 uppercase tracking-[0.2em]">Quick Actions</h2>
+            <p className="text-lg font-bold text-stone-900 mt-1">Pintasan Akses Cepat Administrator</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Pintasan A: Tambah User */}
             <button 
               type="button"
-              // 🔥 FIX: Tambahin ?tab=create biar langsung buka form registrasi
               onClick={() => router.push('/admin/users?tab=create')} 
-              className="flex items-center justify-between p-5 bg-stone-800/80 hover:bg-stone-800 rounded-2xl border border-stone-700/50 hover:border-blue-500/50 transition-all text-left active:scale-[0.99] group/btn"
+              className="flex items-center justify-between p-5 bg-stone-50/60 hover:bg-stone-50 rounded-2xl border border-stone-100 hover:border-blue-300 transition-all text-left active:scale-[0.99] group/btn"
             >
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-blue-600/10 text-blue-400 rounded-xl flex items-center justify-center group-hover/btn:bg-blue-600 group-hover/btn:text-white transition-all shadow-inner">
+                <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center group-hover/btn:bg-blue-600 group-hover/btn:text-white transition-all shadow-inner border border-blue-100 group-hover/btn:border-transparent">
                   <UserPlus size={22} />
                 </div>
                 <div>
-                  <h4 className="font-black text-sm text-stone-100">Registrasi HR Baru</h4>
-                  <p className="text-stone-400 text-xs font-medium mt-0.5">Buka manajemen hak akses tim rekrutmen</p>
+                  <h4 className="font-black text-sm text-stone-900">Registrasi HR Baru</h4>
+                  <p className="text-stone-500 text-xs font-medium mt-0.5">Buka manajemen hak akses tim rekrutmen</p>
                 </div>
               </div>
-              <ArrowUpRight size={18} className="text-stone-500 group-hover/btn:text-blue-400 transition-colors mr-1" />
+              <ArrowUpRight size={18} className="text-stone-300 group-hover/btn:text-blue-600 transition-colors mr-1" />
             </button>
 
             {/* Pintasan B: Buat Pengumuman */}
             <button 
               type="button"
-              onClick={() => router.push('/admin/announcements')} // Sesuaikan arah route pengumuman kelompok lu
-              className="flex items-center justify-between p-5 bg-stone-800/80 hover:bg-stone-800 rounded-2xl border border-stone-700/50 hover:border-purple-500/50 transition-all text-left active:scale-[0.99] group/btn"
+              onClick={() => router.push('/admin/announcements')} 
+              className="flex items-center justify-between p-5 bg-stone-50/60 hover:bg-stone-50 rounded-2xl border border-stone-100 hover:border-purple-300 transition-all text-left active:scale-[0.99] group/btn"
             >
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-purple-600/10 text-purple-400 rounded-xl flex items-center justify-center group-hover/btn:bg-purple-600 group-hover/btn:text-white transition-all shadow-inner">
+                <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center group-hover/btn:bg-purple-600 group-hover/btn:text-white transition-all shadow-inner border border-purple-100 group-hover/btn:border-transparent">
                   <Megaphone size={22} />
                 </div>
                 <div>
-                  <h4 className="font-black text-sm text-stone-100">Siarkan Pengumuman</h4>
-                  <p className="text-stone-400 text-xs font-medium mt-0.5">Buat info siaran broadcast untuk seluruh HR</p>
+                  <h4 className="font-black text-sm text-stone-900">Siarkan Pengumuman</h4>
+                  <p className="text-stone-500 text-xs font-medium mt-0.5">Buat info siaran broadcast untuk seluruh HR</p>
                 </div>
               </div>
-              <ArrowUpRight size={18} className="text-stone-500 group-hover/btn:text-purple-400 transition-colors mr-1" />
+              <ArrowUpRight size={18} className="text-stone-300 group-hover/btn:text-purple-600 transition-colors mr-1" />
             </button>
           </div>
         </div>
