@@ -11,7 +11,7 @@ import { supabase } from '@/app/lib/supabase';
 import ConfirmRescanModal from "@/app/components/ConfirmRescanModal";
 import { apiFetch } from '@/app/lib/api';
 import { 
-  Search, Star, Loader2, Briefcase, Filter, Inbox, RefreshCw
+  Search, Star, Loader2, Briefcase, Filter, Inbox, RefreshCw, ChevronLeft, ChevronRight
 } from 'lucide-react';
 
 const MASTER_STATUSES = ['Review AI', 'Shortlisted', 'Interview', 'Technical Test', 'Hired', 'Rejected'];
@@ -41,6 +41,9 @@ function ListPelamarContent() {
     status: '',
     jobId: initialJobId
   });
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -240,8 +243,21 @@ function ListPelamarContent() {
     }
   };
 
+  const totalPages = Math.max(1, Math.ceil(applicants.length / itemsPerPage));
+  const currentApplicants = applicants.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [applicants.length]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
   return (
-    <div className="flex flex-col h-[calc(100vh-6rem)] max-w-7xl mx-auto px-4 pb-6 animate-in fade-in duration-700">
+    <div className="flex flex-col max-w-7xl mx-auto px-4 pb-6 animate-in fade-in duration-700">
       <div className="shrink-0 space-y-6 mb-6">
         <div className="flex flex-col gap-1.5 pt-2">
           <h1 className="text-3xl font-black text-stone-900 tracking-tight uppercase">List Pelamar</h1>
@@ -363,8 +379,8 @@ function ListPelamarContent() {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 bg-white rounded-[2.5rem] border border-stone-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden flex flex-col">
-        <div className="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar">
+      <div className="bg-white rounded-[2.5rem] border border-stone-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden flex flex-col">
+        <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse table-fixed min-w-250">
             <thead className="sticky top-0 bg-white/95 backdrop-blur-sm z-20 border-b border-stone-100">
               <tr>
@@ -389,7 +405,7 @@ function ListPelamarContent() {
                   </td>
                 </tr>
               ) : (
-                applicants.map((app, index) => {
+                currentApplicants.map((app, index) => {
                   const candidateName = app.candidates?.name || 'Anonymous';
                   const currentStatus = app.status_application || 'Review AI';
                   const isScanning = scanningIds.includes(app.application_id);
@@ -401,7 +417,7 @@ function ListPelamarContent() {
                       className="group hover:bg-stone-50/60 transition-colors cursor-pointer"
                     >
                       <td className="px-6 py-6 text-center">
-                        <span className="font-black text-stone-300 group-hover:text-stone-500 transition-colors text-sm">#{index + 1}</span>
+                        <span className="font-black text-stone-300 group-hover:text-stone-500 transition-colors text-sm">#{(currentPage - 1) * itemsPerPage + index + 1}</span>
                       </td>
 
                       <td className="px-10 py-6">
@@ -510,6 +526,36 @@ function ListPelamarContent() {
             </tbody>
           </table>
         </div>
+
+        {totalPages > 1 && (
+          <div className="px-10 py-4 bg-white border-t border-stone-100 flex items-center justify-between shrink-0">
+            <button
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(currentPage - 1)}
+              className="flex items-center gap-1 text-[10px] font-black uppercase text-stone-400 hover:text-blue-600 disabled:opacity-30 transition-colors"
+            >
+              <ChevronLeft size={14} /> Prev
+            </button>
+            <div className="flex gap-2">
+              {[...Array(totalPages)].map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setCurrentPage(i + 1)}
+                  className={`w-7 h-7 rounded-lg font-black text-[10px] transition-all ${currentPage === i + 1 ? 'bg-blue-600 text-white shadow-md' : 'text-stone-400 hover:bg-stone-50'}`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+            </div>
+            <button
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage(currentPage + 1)}
+              className="flex items-center gap-1 text-[10px] font-black uppercase text-stone-800 hover:text-blue-600 disabled:opacity-30 transition-colors"
+            >
+              Next <ChevronRight size={14} />
+            </button>
+          </div>
+        )}
       </div>
     <ConfirmRescanModal
       isOpen={openConfirm}

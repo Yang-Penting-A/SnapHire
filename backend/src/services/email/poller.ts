@@ -199,25 +199,6 @@ class EmailPollingService {
           // Always remove from processing set when done (success or failure)
           this.processingEmailIds.delete(email.id);
         }
-
-        // Mark as read only if not in DEV_MODE
-        if (!this.devMode) {
-          try {
-            const messageIdStr = email.id.split(':')[1];
-            const messageId = parseInt(messageIdStr, 10);
-            const markedAsRead = await this.emailService.markEmailAsRead(messageId, folderName);
-
-            if (markedAsRead) {
-              console.log(`[READ] Email marked as read`);
-            } else {
-              console.warn(`[READ] Email could not be marked as read`);
-            }
-          } catch (err) {
-            console.error(`[ERROR] Failed to mark email ${email.id} as read:`, err);
-          }
-        } else {
-          console.log(`[READ] Email NOT marked as read (DEV_MODE=true)`);
-        }
       }
     } catch (error) {
       console.error(`[ERROR] Error checking ${folderName}:`, error);
@@ -244,23 +225,21 @@ class EmailPollingService {
         console.log(`[JOB-MATCH] ✓ Matched: ${jobMatch.job_title} (${jobId})`);
       } else {
         console.log(`[JOB-MATCH] ✗ Could not match job from subject`);
-        // Not finding a job match is not fatal 
-        return;
+        throw new Error('Could not match job from subject');
       }
 
       const emailRaw = await this.emailService.fetchEmailRaw(messageId, folderName);
 
       if (!emailRaw) {
         console.log(`[FETCH] ✗ Could not fetch raw email`);
-        // Fetch failure might be temporary, allow retry
-        return;
+        throw new Error('Could not fetch raw email');
       }
 
       const attachment = await this.emailParser.extractAttachment(emailRaw);
 
       if (!attachment) {
         console.log(`[ATTACHMENT] ✗ No valid attachments found`);
-        return;
+        throw new Error('No valid attachments found');
       }
 
       console.log(`[ATTACHMENT] ✓ Found: ${attachment.filename} (${attachment.size} bytes)`);
@@ -279,10 +258,23 @@ class EmailPollingService {
         console.log(`[SUCCESS] ✓ CV processing completed`);
         console.log(`[SUCCESS]   Candidate: ${uploadResult.candidate_name}`);
         console.log(`[SUCCESS]   Score: ${uploadResult.score}`);
-        
-        // ONLY mark as processed after successful processing
-        this.processedEmailIds.add(email.id);
-        console.log(`[SUCCESS] ✓ Marked as processed (will skip on future cycles)`);
+
+        if (!this.devMode) {
+          const markedAsRead = await this.emailService.markEmailAsRead(messageId, folderName);
+
+          if (markedAsRead) {
+            console.log(`[EMAIL] Marked as READ after successful processing`);
+            this.processedEmailIds.add(email.id);
+            console.log(`[SUCCESS] ✓ Marked as processed (will skip on future cycles)`);
+          } else {
+            console.warn(`[EMAIL] Processing succeeded but failed to mark as READ, keeping email UNREAD for retry`);
+            return;
+          }
+        } else {
+          console.log(`[READ] Email NOT marked as read (DEV_MODE=true)`);
+          this.processedEmailIds.add(email.id);
+          console.log(`[SUCCESS] ✓ Marked as processed (will skip on future cycles)`);
+        }
         
         // Remove from failed tracking if previously failed
         if (this.failedEmailIds.has(email.id)) {
@@ -292,6 +284,7 @@ class EmailPollingService {
       } else {
         console.log(`[RETRY] ✗ CV processing failed: ${uploadResult.error}`);
         console.log(`[RETRY]   Email will be retried in next polling cycle`);
+        throw new Error(uploadResult.error || 'CV processing failed');
       }
     } catch (error) {
       console.error(`[ERROR] Exception in processEmail:`, error);

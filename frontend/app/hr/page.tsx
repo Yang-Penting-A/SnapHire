@@ -56,6 +56,23 @@ export default function HRDashboard() {
     return actual === expected || actual.includes(expected) || expected.includes(actual);
   };
 
+  const formatInterviewDateTime = (value?: string) => {
+    if (!value) return '-';
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+
+    return new Intl.DateTimeFormat('id-ID', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZone: 'Asia/Jakarta'
+    }).format(date).replace('.', ':');
+  };
+
   const fetchDashboardData = useCallback(async (isBackgroundRefresh = false) => {
     if (!isBackgroundRefresh) {
       setIsLoading(true);
@@ -438,10 +455,14 @@ export default function HRDashboard() {
             <h3 className="text-[11px] font-black text-stone-400 uppercase tracking-[0.3em] ml-1">Jadwal Interview Mendatang</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 pb-10">
                 {interviewSchedule.length > 0 ? interviewSchedule.map((item: any, i: number) => (
-                    <div key={i} className="bg-white p-7 rounded-[2rem] border border-stone-100 shadow-sm flex flex-col justify-between hover:shadow-xl hover:border-blue-200 transition-all group">
+                  <div
+                    key={i}
+                    className="bg-white p-7 rounded-[2rem] border border-stone-100 shadow-sm flex flex-col justify-between hover:shadow-xl hover:border-blue-200 transition-all group cursor-pointer"
+                    onClick={() => router.push(`/hr/applicants/${item.application_id}`)}
+                  >
                         <div>
                             <span className="text-[10px] font-black text-blue-500 uppercase tracking-[0.2em] flex items-center gap-2">
-                        <Clock size={12} /> {item.interview_date || item.created_at}
+                    <Clock size={12} /> {formatInterviewDateTime(item.interview_date || item.created_at)} WIB
                             </span>
                             <p className="font-black text-stone-900 text-lg mt-3 group-hover:text-blue-600 transition-colors">{item.candidates?.name}</p>
                             <p className="text-[11px] font-bold text-stone-500 uppercase tracking-wider">{item.jobs?.title}</p>

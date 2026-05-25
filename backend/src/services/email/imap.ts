@@ -66,7 +66,9 @@ class EmailService {
     }
 
     const doFetch = async () => {
-      const mailbox = await this.client!.mailboxOpen(folderName);
+      // Open mailbox in read-only mode to avoid modifying message flags during fetch
+      console.log(`[IMAP] Opening mailbox ${folderName} in read-only mode (will not set \\Seen)`);
+      const mailbox = await this.client!.mailboxOpen(folderName, { readOnly: true });
       const unreadSearch = await this.client!.search({ seen: false }, { uid: true });
 
       if (!unreadSearch || (typeof unreadSearch !== 'boolean' && unreadSearch.length === 0)) {
@@ -121,8 +123,9 @@ class EmailService {
     }
 
     const doFetchRaw = async () => {
-      // Select the correct mailbox before downloading
-      await this.client!.mailboxOpen(folderName);
+      // Open mailbox in read-only mode to avoid changing \\Seen flag while downloading
+      console.log(`[IMAP] Fetching email ${messageId} from ${folderName} without setting \\Seen`);
+      await this.client!.mailboxOpen(folderName, { readOnly: true });
 
       const message = await this.client!.download(messageId, '', { uid: true });
       const chunks: Buffer[] = [];

@@ -7,8 +7,21 @@ dotenv.config();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY as string);
 
+// Determine model name, avoid accidentally selecting *-lite variants
+function resolveGeminiModel(): string {
+  const envModel = (process.env.GEMINI_MODEL || '').trim();
+  if (envModel && /flash-lite/i.test(envModel)) {
+    console.warn('[AI] GEMINI_MODEL in environment contains a lite variant; overriding to gemini-2.5-flash');
+    return 'gemini-2.5-flash';
+  }
+  if (envModel) return envModel;
+  return 'gemini-2.5-flash';
+}
+
+const DEFAULT_GEMINI_MODEL = resolveGeminiModel();
+console.log(`[AI] Default Gemini model resolved: ${DEFAULT_GEMINI_MODEL}`);
+
 // --- HELPER: Retry dengan Exponential Backoff ---
-// Berguna agar sistem tidak langsung crash jika API Gemini sedang limit/sibuk
 async function retryWithBackoff<T>(
   fn: () => Promise<T>,
   maxRetries: number = 3,
@@ -34,14 +47,16 @@ async function retryWithBackoff<T>(
 
 // --- FUNGSI 1: EKSTRAKSI DATA CV ---
 export const extractResumeData = async (textContent: string) => {
-  // Rate limiting: avoid exceeding Gemini RPM (15/minute) quota
   await sleep(2000);
   
+  const modelName = DEFAULT_GEMINI_MODEL;
+  console.log(`[AI] Using Gemini model: ${modelName} for resume extraction`);
+
   const model = genAI.getGenerativeModel({ 
-    model: "gemini-2.5-flash-lite", // Pakai versi lite biar lebih cepat dan hemat cost
+    model: modelName,
     generationConfig: { 
       responseMimeType: "application/json",
-      temperature: 0.1 // Tetap rendah agar ekstraksi data faktual (tidak mengarang)
+      temperature: 0.1 
     }
   });
 
@@ -84,8 +99,11 @@ export const calculateMatchScore = async (resumeJSON: any, jobRequirements: stri
   // Rate limiting: avoid exceeding Gemini RPM (15/minute) quota
   await sleep(2000);
   
+  const modelName2 = DEFAULT_GEMINI_MODEL;
+  console.log(`[AI] Using Gemini model: ${modelName2} for match scoring`);
+
   const model = genAI.getGenerativeModel({ 
-    model: "gemini-2.5-flash", 
+    model: modelName2, 
     generationConfig: { 
       responseMimeType: "application/json",
       temperature: 0.1 // SUDAH DIPERKETAT: AI menjadi kaku, rasional, dan tidak bias
