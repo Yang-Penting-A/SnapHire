@@ -91,11 +91,11 @@ function generateInterviewInvitationHTML(data: InterviewInvitationData): string 
             background-color: #ffffff;
             border-radius: 24px;
             border: 1px solid #e2e8f0;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
             overflow: hidden;
           }
           .header {
-            background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
             color: #ffffff;
             padding: 28px 32px;
           }
@@ -134,9 +134,9 @@ function generateInterviewInvitationHTML(data: InterviewInvitationData): string 
             margin: 24px 0 16px 0;
           }
           .interview-details {
-            background: linear-gradient(135deg, #f0f4ff 0%, #f5f3ff 100%);
+            background: linear-gradient(135deg, #dbeafe 0%, #f0f9ff 100%);
             border-radius: 16px;
-            border: 1px solid #e0e7ff;
+            border: 1px solid #93c5fd;
             padding: 20px;
             margin: 0 0 24px 0;
           }
@@ -151,7 +151,7 @@ function generateInterviewInvitationHTML(data: InterviewInvitationData): string 
           }
           .detail-label {
             font-weight: 700;
-            color: #4f46e5;
+            color: #2563eb;
             font-size: 12px;
             text-transform: uppercase;
             letter-spacing: 0.05em;
@@ -166,9 +166,9 @@ function generateInterviewInvitationHTML(data: InterviewInvitationData): string 
             margin-left: 16px;
           }
           .info-box {
-            background: linear-gradient(135deg, #eff6ff 0%, #f0f9ff 100%);
+            background: linear-gradient(135deg, #dbeafe 0%, #ecfdf5 100%);
             border-radius: 16px;
-            border: 1px solid #bfdbfe;
+            border: 1px solid #93c5fd;
             padding: 16px;
             margin: 24px 0;
             font-size: 14px;
@@ -178,7 +178,7 @@ function generateInterviewInvitationHTML(data: InterviewInvitationData): string 
           .info-box strong {
             display: block;
             margin-bottom: 8px;
-            color: #1d4ed8;
+            color: #2563eb;
             font-weight: 700;
           }
           .info-box p {
@@ -196,13 +196,13 @@ function generateInterviewInvitationHTML(data: InterviewInvitationData): string 
           }
           .cta-buttons {
             display: flex;
-            gap: 12px;
+            gap: 24px;
             justify-content: center;
             flex-wrap: wrap;
           }
           .cta-button {
             display: inline-block;
-            background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
             color: #ffffff !important;
             -webkit-text-fill-color: #ffffff;
             padding: 12px 24px;
@@ -211,17 +211,17 @@ function generateInterviewInvitationHTML(data: InterviewInvitationData): string 
             font-weight: 700;
             font-size: 14px;
             transition: all 0.2s;
-            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
           }
           .cta-button:hover {
-            box-shadow: 0 6px 16px rgba(79, 70, 229, 0.3);
+            box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35);
           }
           .cta-button.decline {
-            background: linear-gradient(135deg, #e11d48 0%, #be123c 100%);
-            box-shadow: 0 4px 12px rgba(225, 29, 72, 0.2);
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.2);
           }
           .cta-button.decline:hover {
-            box-shadow: 0 6px 16px rgba(225, 29, 72, 0.3);
+            box-shadow: 0 6px 16px rgba(220, 38, 38, 0.3);
           }
           .note {
             font-size: 14px;
@@ -238,13 +238,13 @@ function generateInterviewInvitationHTML(data: InterviewInvitationData): string 
             margin: 0;
           }
           .footer {
-            background-color: #f8fafc;
+            background-color: #f1f5f9;
             padding: 20px 32px;
             border-top: 1px solid #e2e8f0;
             font-size: 12px;
             color: #64748b;
             text-align: center;
-            opacity: 0.85;
+            opacity: 0.9;
           }
         </style>
       </head>
@@ -300,8 +300,8 @@ function generateInterviewInvitationHTML(data: InterviewInvitationData): string 
             <div class="cta-section">
               <p class="cta-text">Please confirm your attendance:</p>
               <div class="cta-buttons">
-                <a href="${confirmationLink}" class="cta-button">✓ Confirm Interview</a>
-                ${declineLink ? `<a href="${declineLink}" class="cta-button decline">✗ Decline</a>` : ''}
+                <a href="${confirmationLink}" class="cta-button">Confirm Interview</a>
+                ${declineLink ? `<a href="${declineLink}" class="cta-button decline">Decline</a>` : ''}
               </div>
             </div>
 
