@@ -19,18 +19,30 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
 
           script: |
+            set -e
+
             cd ~/SnapHire
 
-            git pull origin main
+            git fetch origin
+            git reset --hard origin/main
 
             cd backend
-            npm ci
+
+            rm -rf dist
+
+            npm install
             npm run build
-            pm2 restart backend
+
+            pm2 restart backend --update-env
 
             cd ../frontend
-            npm ci
+
+            npm install
+
             NODE_OPTIONS="--max-old-space-size=2048" npm run build
-            pm2 restart frontend
+
+            pm2 restart frontend --update-env
 
             sudo systemctl reload nginx
+
+            pm2 save
