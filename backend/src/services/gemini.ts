@@ -7,15 +7,11 @@ dotenv.config();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY as string);
 
-// Determine model name, default to gemini-1.5-flash for compatibility
+// Determine model name, default to gemini-3.1-flash-lite for better rate limits
 function resolveGeminiModel(): string {
   const envModel = (process.env.GEMINI_MODEL || '').trim();
-  if (envModel && /flash-lite/i.test(envModel)) {
-    console.warn('[AI] GEMINI_MODEL in environment contains a lite variant; overriding to gemini-1.5-flash');
-    return 'gemini-1.5-flash';
-  }
   if (envModel) return envModel;
-  return 'gemini-1.5-flash';
+  return 'gemini-3.1-flash-lite';
 }
 
 const DEFAULT_GEMINI_MODEL = resolveGeminiModel();
